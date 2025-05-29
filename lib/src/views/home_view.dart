@@ -5,7 +5,17 @@ class HomeView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Inicio')),
-      body: Center(child: Text('¡Hola Mundo!')),
+      body: Center(child: Text('¡Hola Jorge Molina! Bienvenido a App Beauty')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Acción del botón flotante
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('¡Botón flotante presionado!')),
+          );
+        },
+        child: Icon(Icons.add),
+        backgroundColor: Colors.pink,
+      ),
     );
   }
 }
