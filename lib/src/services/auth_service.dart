@@ -1,36 +1,31 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 
 class AuthService {
-  // Base de datos temporal (en producción usa Firebase, SQLite, etc.)
-  final List<User> _users = [
-    User(id: '1', email: 'admin@example.com', password: '123456'),
-  ];
+  final String _loginUrl = 'http://3.230.107.32:3002/api/v1/loginNew';
 
-  // Método para iniciar sesión
   Future<User?> login(String email, String password) async {
-    await Future.delayed(const Duration(seconds: 1)); // Simular llamada a API
-    
     try {
-      final user = _users.firstWhere(
-        (u) => u.email == email && u.password == password,
+      final response = await http.post(
+        Uri.parse(_loginUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'gmail': email,
+          'password': password,
+        }),
       );
-      return user;
-    } catch (e) {
-      return null; // No se encontró el usuario
-    }
-  }
 
-  // Método para registrar usuario (opcional)
-  Future<User> register(String email, String password) async {
-    await Future.delayed(const Duration(seconds: 1));
-    
-    final newUser = User(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      email: email,
-      password: password,
-    );
-    
-    _users.add(newUser);
-    return newUser;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return User.fromJson(data, email);
+      } else {
+        print('Error de login: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Excepción en login: $e');
+      return null;
+    }
   }
 }

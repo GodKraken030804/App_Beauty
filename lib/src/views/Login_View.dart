@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
@@ -26,7 +27,7 @@ class _LoginViewState extends State<LoginView> {
   Future<void> _login(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
+
       try {
         final user = await _authService.login(
           _emailController.text.trim(),
@@ -34,6 +35,20 @@ class _LoginViewState extends State<LoginView> {
         );
 
         if (user != null) {
+          // Guardar token y email en SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', user.token);
+          await prefs.setString('email', user.email);
+
+          // Imprimir token (debug)
+          print('Token recibido: ${user.token}');
+
+          // Mostrar mensaje de éxito
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Inicio de sesión exitoso')),
+          );
+
+          // Navegar a la pantalla de opciones
           Navigator.pushReplacementNamed(context, '/options');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +77,6 @@ class _LoginViewState extends State<LoginView> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                // Logo de la app
                 Image.asset(
                   'assets/images/Logo.png',
                   width: 300,
@@ -79,8 +93,6 @@ class _LoginViewState extends State<LoginView> {
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Campos de formulario
                 TextFormField(
                   controller: _emailController,
                   decoration: InputDecoration(
@@ -122,8 +134,6 @@ class _LoginViewState extends State<LoginView> {
                   },
                 ),
                 const SizedBox(height: 20),
-
-                // Botón de inicio de sesión
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

@@ -1,29 +1,16 @@
 class User {
-  final String id;
   final String email;
-  final String password; // En producción, esto debería ser un hash
+  final String token;
 
   User({
-    required this.id,
     required this.email,
-    required this.password,
+    required this.token,
   });
 
-  // Convertir de JSON a User
-  factory User.fromJson(Map<String, dynamic> json) {
+  factory User.fromJson(Map<String, dynamic> json, String email) {
     return User(
-      id: json['id'],
-      email: json['email'],
-      password: json['password'],
+      email: email,
+      token: json['token'],
     );
-  }
-
-  // Convertir de User a JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'email': email,
-      'password': password,
-    };
   }
 }
