@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:app_beauty/src/views/acceso_alumnas_view.dart';
 
 class OptionsView extends StatelessWidget {
   final Color gradientStart = const Color(0xFFF26AB6);
@@ -61,7 +62,9 @@ class OptionsView extends StatelessWidget {
                   imageAsset: 'assets/images/acceso.png',
                   label: 'Acceso De Alumnas',
                   onTap: () {
-                    // Navegar a vista de acceso
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (context) => const AccesoAlumnasView(),
+                    ));
                   },
                 ),
                 MenuButton(
