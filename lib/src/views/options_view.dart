@@ -11,12 +11,33 @@ class OptionsView extends StatelessWidget {
       backgroundColor: const Color(0xFFF3F3F3),
       body: Column(
         children: [
-          // Encabezado
+          // Encabezado con logo
           Container(
-            padding: const EdgeInsets.only(top: 50, bottom: 20),
-            child: Column(
-              children: [
-                Image.asset('assets/images/Logo.png', height: 250), // Usa tu logo aquí
+            padding: const EdgeInsets.only(top: 20, bottom: 10),
+            child: SizedBox(
+              height: 250,
+              child: Image.asset(
+                'assets/images/Logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+
+          // Línea decorativa curvada (imitando la separación visual de la maqueta)
+          Container(
+            height: 20,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(40),
+                topRight: Radius.circular(40),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
+                ),
               ],
             ),
           ),
@@ -30,28 +51,28 @@ class OptionsView extends StatelessWidget {
               mainAxisSpacing: 16,
               children: [
                 MenuButton(
-                  icon: Icons.person_add,
+                  imageAsset: 'assets/images/inscripcion.png',
                   label: 'Inscripción De Alumnas',
                   onTap: () {
                     // Navegar a vista de inscripción
                   },
                 ),
                 MenuButton(
-                  icon: Icons.verified_user_outlined,
+                  imageAsset: 'assets/images/acceso.png',
                   label: 'Acceso De Alumnas',
                   onTap: () {
                     // Navegar a vista de acceso
                   },
                 ),
                 MenuButton(
-                  icon: Icons.shopping_cart,
+                  imageAsset: 'assets/images/ventas.png',
                   label: 'Ventas',
                   onTap: () {
                     // Navegar a vista de ventas
                   },
                 ),
                 MenuButton(
-                  icon: Icons.inventory,
+                  imageAsset: 'assets/images/inventario.png',
                   label: 'Inventario',
                   onTap: () {
                     // Navegar a vista de inventario
@@ -61,7 +82,7 @@ class OptionsView extends StatelessWidget {
             ),
           ),
 
-          // Barra inferior
+          // Barra inferior aumentada 30%
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -72,13 +93,16 @@ class OptionsView extends StatelessWidget {
                 topRight: Radius.circular(25),
               ),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: const [
-                BottomIcon(icon: Icons.home, label: "Principal"),
-                BottomIcon(icon: Icons.person, label: "Mi Perfil"),
-              ],
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            child: SizedBox(
+              height: 100,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: const [
+                  BottomIcon(icon: Icons.home, label: "Principal"),
+                  BottomIcon(icon: Icons.person, label: "Mi Perfil"),
+                ],
+              ),
             ),
           ),
         ],
@@ -88,20 +112,26 @@ class OptionsView extends StatelessWidget {
 }
 
 // ------------------------------
-// Botón animado personalizado
+// Botón animado personalizado con imagen
 // ------------------------------
 class MenuButton extends StatefulWidget {
-  final IconData icon;
+  final String imageAsset;
   final String label;
   final VoidCallback onTap;
 
-  const MenuButton({required this.icon, required this.label, required this.onTap, Key? key}) : super(key: key);
+  const MenuButton({
+    required this.imageAsset,
+    required this.label,
+    required this.onTap,
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<MenuButton> createState() => _MenuButtonState();
 }
 
-class _MenuButtonState extends State<MenuButton> with SingleTickerProviderStateMixin {
+class _MenuButtonState extends State<MenuButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -140,7 +170,7 @@ class _MenuButtonState extends State<MenuButton> with SingleTickerProviderStateM
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.icon, color: Colors.white, size: 50),
+              Image.asset(widget.imageAsset, height: 90, fit: BoxFit.contain),
               const SizedBox(height: 10),
               Text(
                 widget.label,
@@ -148,7 +178,7 @@ class _MenuButtonState extends State<MenuButton> with SingleTickerProviderStateM
                 style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  fontSize: 22,
                 ),
               ),
             ],
@@ -166,16 +196,20 @@ class BottomIcon extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const BottomIcon({required this.icon, required this.label, Key? key}) : super(key: key);
+  const BottomIcon({required this.icon, required this.label, Key? key})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: Colors.white),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        Icon(icon, color: Colors.white, size: 45),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 22),
+        ),
       ],
     );
   }

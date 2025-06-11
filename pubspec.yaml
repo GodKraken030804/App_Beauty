@@ -67,6 +67,11 @@ flutter:
   assets:
    - assets/images/Logo.png
    - assets/images/diplexus_logo.jpg
+   - assets/images/Logo.png
+   - assets/images/inscripcion.png
+   - assets/images/acceso.png
+   - assets/images/ventas.png
+   - assets/images/inventario.png
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
