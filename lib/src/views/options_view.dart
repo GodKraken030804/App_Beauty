@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:app_beauty/src/views/acceso_alumnas_view.dart';
+import 'package:app_beauty/src/views/inventario_view.dart';
 
 class OptionsView extends StatelessWidget {
   final Color gradientStart = const Color(0xFFF26AB6);
@@ -24,24 +25,7 @@ class OptionsView extends StatelessWidget {
             ),
           ),
 
-          // Línea decorativa curvada (imitando la separación visual de la maqueta)
-          Container(
-            height: 20,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(40),
-                topRight: Radius.circular(40),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  offset: Offset(0, 2),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-          ),
+          
 
           // Cuatro botones
           Expanded(
@@ -72,13 +56,15 @@ class OptionsView extends StatelessWidget {
                   label: 'Ventas',
                   onTap: () {
                     // Navegar a vista de ventas
+                   
                   },
                 ),
                 MenuButton(
                   imageAsset: 'assets/images/inventario.png',
                   label: 'Inventario',
                   onTap: () {
-                    // Navegar a vista de inventario
+                    Navigator.push(context, MaterialPageRoute(builder:
+                    (context) => const ProductosExcelView(),));
                   },
                 ),
               ],
