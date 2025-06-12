@@ -25,8 +25,8 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomeView(), // Ruta para Home
 
         '/login': (context) => LoginView(), // Ruta para Login
-        
-        '/options': (context) =>  OptionsView(), // Ruta para Opciones
+
+        '/options': (context) => OptionsView(), // Ruta para Opciones
       },
     );
   }
