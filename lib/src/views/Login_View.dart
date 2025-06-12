@@ -40,15 +40,12 @@ class _LoginViewState extends State<LoginView> {
           await prefs.setString('token', user.token);
           await prefs.setString('email', user.email);
 
-          // Imprimir token (debug)
           print('Token recibido: ${user.token}');
 
-          // Mostrar mensaje de éxito
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Inicio de sesión exitoso')),
           );
 
-          // Navegar a la pantalla de opciones
           Navigator.pushReplacementNamed(context, '/options');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

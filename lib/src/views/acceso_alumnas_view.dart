@@ -2,9 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+<<<<<<< HEAD
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:typed_data';
+=======
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:io' as io;
+>>>>>>> origin/Jorge_Molina
 import '../models/alumna_model.dart';
 import 'dart:io' as io; // Solo se usa en móviles
 
@@ -53,6 +60,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
 
       if (kIsWeb) {
         bytes = result.files.first.bytes;
+<<<<<<< HEAD
       } else {
         final path = result.files.first.path;
         if (path != null) {
@@ -86,10 +94,46 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
 
           await _guardarAlumnas(cargadas);
         }
+=======
+>>>>>>> origin/Jorge_Molina
       } else {
+        final path = result.files.first.path;
+        if (path != null) {
+          bytes = await io.File(path).readAsBytes();
+        }
+      }
+
+      if (bytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se pudo leer el archivo seleccionado')),
         );
+        return;
+      }
+
+      final excel = Excel.decodeBytes(bytes);
+      final Sheet? hoja = excel.tables[excel.tables.keys.first];
+
+      if (hoja != null) {
+        List<Alumna> cargadas = [];
+
+        for (int i = 1; i < hoja.maxRows; i++) {
+          final fila = hoja.row(i);
+          final nombre = fila[0]?.value.toString() ?? '';
+          final servicio = fila[1]?.value.toString() ?? '';
+          final anticipo = double.tryParse(fila[2]?.value.toString() ?? '0') ?? 0;
+
+          cargadas.add(Alumna(
+            nombre: nombre,
+            servicio: servicio,
+            anticipo: anticipo,
+          ));
+        }
+
+        setState(() {
+          alumnas = cargadas;
+        });
+
+        await _guardarAlumnas(cargadas);
       }
     }
   }
@@ -129,14 +173,34 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
 
   @override
   Widget build(BuildContext context) {
+    final mainColor = const Color.fromARGB(255, 195, 19, 142).withOpacity(0.9);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Acceso de Alumnas')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Acceso de Alumnas'),
+        backgroundColor: mainColor,
+        elevation: 4,
+      ),
       body: Column(
         children: [
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _importarExcel,
-            child: const Text('Subir Excel'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: ElevatedButton.icon(
+              onPressed: _importarExcel,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Subir Excel'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: mainColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
           const SizedBox(height: 10),
           Expanded(
@@ -147,12 +211,17 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
                 final alumna = alumnas[index];
                 return GestureDetector(
                   onTap: () => _mostrarDialogoLlegada(index),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: alumna.llego ? Colors.green[100] : Colors.red[100],
-                      borderRadius: BorderRadius.circular(25),
+                      color: alumna.llego == null
+                          ? Colors.grey[100]
+                          : alumna.llego!
+                              ? Colors.green[100]
+                              : Colors.red[100],
+                      borderRadius: BorderRadius.circular(20),
                       boxShadow: const [
                         BoxShadow(
                           color: Colors.black12,
