@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:io'; // <- necesario para leer con File
 import '../models/alumna_model.dart';
+import 'dart:io' as io; // Solo se usa en móviles
 
 class AccesoAlumnasView extends StatefulWidget {
   const AccesoAlumnasView({super.key});
@@ -44,13 +45,22 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
+      withData: true, // Necesario para web
     );
 
     if (result != null) {
-      final path = result.files.first.path;
+      Uint8List? bytes;
 
-      if (path != null) {
-        final bytes = await File(path).readAsBytes();
+      if (kIsWeb) {
+        bytes = result.files.first.bytes;
+      } else {
+        final path = result.files.first.path;
+        if (path != null) {
+          bytes = await io.File(path).readAsBytes();
+        }
+      }
+
+      if (bytes != null) {
         final excel = Excel.decodeBytes(bytes);
         final Sheet? hoja = excel.tables[excel.tables.keys.first];
 
@@ -78,7 +88,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo acceder al archivo seleccionado')),
+          const SnackBar(content: Text('No se pudo leer el archivo seleccionado')),
         );
       }
     }
