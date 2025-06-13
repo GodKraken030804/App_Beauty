@@ -26,15 +26,10 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomeView(), // Ruta para Home
 
         '/login': (context) => LoginView(), // Ruta para Login
-<<<<<<< HEAD
-
-        '/options': (context) => OptionsView(), // Ruta para Opciones
-=======
         
         '/options': (context) =>  OptionsView(), // Ruta para Opciones
 
         '/inventario': (context) => ProductosExcelView(), // Ruta para Inventario (puedes cambiarla a la vista correspondiente)
->>>>>>> origin/Jorge_Molina
       },
     );
   }

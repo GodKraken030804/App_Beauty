@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:another_flushbar/flushbar.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
+import 'options_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -24,6 +26,26 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
+  Future<void> _mostrarError(String mensaje) async {
+    Flushbar(
+      margin: const EdgeInsets.all(20),
+      borderRadius: BorderRadius.circular(15),
+      backgroundColor: Colors.redAccent,
+      flushbarPosition: FlushbarPosition.TOP,
+      icon: const Icon(Icons.error, color: Colors.white, size: 28),
+      titleText: const Text(
+        "Error",
+        style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+      messageText: Text(
+        mensaje,
+        style: const TextStyle(fontSize: 16, color: Colors.white),
+      ),
+      duration: const Duration(seconds: 3),
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
+  }
+
   Future<void> _login(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -35,27 +57,36 @@ class _LoginViewState extends State<LoginView> {
         );
 
         if (user != null) {
-          // Guardar token y email en SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('token', user.token);
           await prefs.setString('email', user.email);
 
-          print('Token recibido: ${user.token}');
+          // 💡 Importante: reinicia el flag de bienvenida
+          await prefs.setBool('notificacion_mostrada', false);
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Inicio de sesión exitoso')),
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => const OptionsView(),
+              transitionsBuilder: (_, animation, __, child) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.0, 0.1),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+            ),
           );
-
-          Navigator.pushReplacementNamed(context, '/options');
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Credenciales incorrectas')),
-          );
+          _mostrarError("Credenciales incorrectas");
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        _mostrarError('Error: ${e.toString()}');
       } finally {
         setState(() => _isLoading = false);
       }

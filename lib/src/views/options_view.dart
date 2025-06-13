@@ -1,11 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/acceso_alumnas_view.dart';
 import 'package:app_beauty/src/views/inventario_view.dart';
+import 'registro_alumnas_view.dart';
 
-class OptionsView extends StatelessWidget {
+
+class OptionsView extends StatefulWidget {
+  const OptionsView({super.key});
+
+  @override
+  State<OptionsView> createState() => _OptionsViewState();
+}
+
+class _OptionsViewState extends State<OptionsView> {
   final Color gradientStart = const Color(0xFFF26AB6);
   final Color gradientEnd = const Color(0xFFAA57EC);
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarYMostrarNotificacion();
+  }
+
+  Future<void> _verificarYMostrarNotificacion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final yaMostrado = prefs.getBool('notificacion_mostrada') ?? false;
+
+    if (!yaMostrado) {
+      await prefs.setBool('notificacion_mostrada', true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mostrarNotificacionExitosa(context);
+      });
+    }
+  }
+
+  void _mostrarNotificacionExitosa(BuildContext context) {
+    Flushbar(
+      margin: const EdgeInsets.all(20),
+      borderRadius: BorderRadius.circular(15),
+      backgroundColor: gradientStart,
+      flushbarPosition: FlushbarPosition.TOP,
+      icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
+      titleText: const Text(
+        "¡Bienvenido!",
+        style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+      messageText: const Text(
+        "Inicio de sesión exitoso.",
+        style: TextStyle(fontSize: 16, color: Colors.white),
+      ),
+      duration: const Duration(seconds: 3),
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +62,7 @@ class OptionsView extends StatelessWidget {
       backgroundColor: const Color(0xFFF3F3F3),
       body: Column(
         children: [
-          // Encabezado con logo
+          // Logo
           Container(
             padding: const EdgeInsets.only(top: 20, bottom: 10),
             child: SizedBox(
@@ -24,8 +73,6 @@ class OptionsView extends StatelessWidget {
               ),
             ),
           ),
-
-          
 
           // Cuatro botones
           Expanded(
@@ -39,9 +86,13 @@ class OptionsView extends StatelessWidget {
                   imageAsset: 'assets/images/inscripcion.png',
                   label: 'Inscripción De Alumnas',
                   onTap: () {
-                    // Navegar a vista de inscripción
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RegistroAlumnasView()),
+                    );
                   },
                 ),
+
                 MenuButton(
                   imageAsset: 'assets/images/acceso.png',
                   label: 'Acceso De Alumnas',
@@ -56,22 +107,22 @@ class OptionsView extends StatelessWidget {
                   label: 'Ventas',
                   onTap: () {
                     // Navegar a vista de ventas
-                   
                   },
                 ),
                 MenuButton(
                   imageAsset: 'assets/images/inventario.png',
                   label: 'Inventario',
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder:
-                    (context) => const ProductosExcelView(),));
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (context) => const ProductosExcelView(),
+                    ));
                   },
                 ),
               ],
             ),
           ),
 
-          // Barra inferior aumentada 30%
+          // Barra inferior
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
