@@ -4,6 +4,7 @@ import 'package:app_beauty/src/views/home_view.dart';
 import 'package:app_beauty/src/views/Login_View.dart';
 import 'package:app_beauty/src/views/options_view.dart';
 import 'package:app_beauty/src/views/inventario_view.dart';
+import 'package:app_beauty/src/views/mi_perfil_view.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,13 +24,11 @@ class MyApp extends StatelessWidget {
       ),
       home: const SplashView(), // Splash como pantalla inicial
       routes: {
-        '/home': (context) => const HomeView(), // Ruta para Home
-
-        '/login': (context) => LoginView(), // Ruta para Login
-        
-        '/options': (context) =>  OptionsView(), // Ruta para Opciones
-
-        '/inventario': (context) => ProductosExcelView(), // Ruta para Inventario (puedes cambiarla a la vista correspondiente)
+        '/home': (context) => const HomeView(),
+        '/perfil': (context) => const MiPerfilView(), 
+        '/login': (context) => const LoginView(),
+        '/options': (context) => const OptionsView(),
+        '/inventario': (context) => const ProductosExcelView(),
       },
     );
   }

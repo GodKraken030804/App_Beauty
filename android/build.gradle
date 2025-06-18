@@ -1,10 +1,12 @@
-ext.flutter = [
-    compileSdkVersion : 35,
-    targetSdkVersion  : 35,
-    minSdkVersion     : 21,
-    ndkVersion        : '25.1.8937393'
-]
-
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.3.0'
+    }
+}
 
 allprojects {
     repositories {
@@ -12,6 +14,13 @@ allprojects {
         mavenCentral()
     }
 }
+
+ext.flutter = [
+    compileSdkVersion : 35,
+    targetSdkVersion  : 35,
+    minSdkVersion     : 21,
+    ndkVersion        : '25.1.8937393'
+]
 
 rootProject.buildDir = "../build"
 subprojects {

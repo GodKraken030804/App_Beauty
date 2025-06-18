@@ -5,6 +5,8 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/acceso_alumnas_view.dart';
 import 'package:app_beauty/src/views/inventario_view.dart';
 import 'registro_alumnas_view.dart';
+import 'package:app_beauty/src/views/mi_perfil_view.dart';
+
 
 
 class OptionsView extends StatefulWidget {
@@ -138,10 +140,24 @@ class _OptionsViewState extends State<OptionsView> {
               height: 100,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: const [
-                  BottomIcon(icon: Icons.home, label: "Principal"),
-                  BottomIcon(icon: Icons.person, label: "Mi Perfil"),
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      // Ya estás en la vista Principal
+                    },
+                    child: const BottomIcon(icon: Icons.home, label: "Principal"),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                      );
+                    },
+                    child: const BottomIcon(icon: Icons.person, label: "Mi Perfil"),
+                  ),
                 ],
+
               ),
             ),
           ),
