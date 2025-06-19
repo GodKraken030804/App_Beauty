@@ -5,6 +5,8 @@ import 'package:app_beauty/src/views/Login_View.dart';
 import 'package:app_beauty/src/views/options_view.dart';
 import 'package:app_beauty/src/views/inventario_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_view.dart';
+import 'package:app_beauty/src/views/vista_prueba.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -29,6 +31,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginView(),
         '/options': (context) => const OptionsView(),
         '/inventario': (context) => const ProductosExcelView(),
+        '/vista_prueba': (context) => const VistaPrueba(),
       },
     );
   }
