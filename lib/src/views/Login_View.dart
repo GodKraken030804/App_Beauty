@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
+import 'package:jwt_decoder/jwt_decoder.dart'; // 👈 NUEVO
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import 'options_view.dart';
+import 'package:app_beauty/src/views/admin_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -35,7 +37,8 @@ class _LoginViewState extends State<LoginView> {
       icon: const Icon(Icons.error, color: Colors.white, size: 28),
       titleText: const Text(
         "Error",
-        style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+            fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
       ),
       messageText: Text(
         mensaje,
@@ -60,14 +63,27 @@ class _LoginViewState extends State<LoginView> {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('token', user.token);
           await prefs.setString('email', user.email);
-
-          // 💡 Importante: reinicia el flag de bienvenida
           await prefs.setBool('notificacion_mostrada', false);
 
+          // 👇 NUEVO: Decodificar token para obtener el rol
+          final decodedToken = JwtDecoder.decode(user.token);
+          final rol = decodedToken['rol'] ?? 'default';
+
+          // 👇 NUEVO: Determinar vista de destino según el rol
+          Widget destino;
+          if (rol == 'admin') {
+            destino = const AdminView();
+          } else if (rol == 'encargado') {
+            destino = const OptionsView();
+          } else {
+            destino = const OptionsView(); // Vista por defecto
+          }
+
+          // 👇 REEMPLAZA el push anterior
           Navigator.pushReplacement(
             context,
             PageRouteBuilder(
-              pageBuilder: (_, __, ___) => const OptionsView(),
+              pageBuilder: (_, __, ___) => destino,
               transitionsBuilder: (_, animation, __, child) {
                 return FadeTransition(
                   opacity: animation,
