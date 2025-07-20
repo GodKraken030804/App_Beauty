@@ -21,11 +21,10 @@ class RegistroAlumnasView extends StatefulWidget {
 class _RegistroAlumnasViewState extends State<RegistroAlumnasView> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController nombreController = TextEditingController();
+  final TextEditingController servicioController = TextEditingController();
   final TextEditingController anticipoController = TextEditingController();
-  final TextEditingController efectivoController = TextEditingController();
-  final TextEditingController transferenciaController = TextEditingController();
-  String servicio = 'Dermapen';
-  String metodoPago = 'Efectivo';
+  final TextEditingController metodoPagoController = TextEditingController();
+  final TextEditingController digitosController = TextEditingController();
 
   List<Alumna> alumnas = [];
 
@@ -56,8 +55,18 @@ class _RegistroAlumnasViewState extends State<RegistroAlumnasView> {
     if (!_formKey.currentState!.validate()) return;
 
     final nombre = nombreController.text.trim();
+    final servicio = servicioController.text.trim();
     final anticipo = double.tryParse(anticipoController.text.trim()) ?? 0;
-    final alumna = Alumna(nombre: nombre, servicio: servicio, anticipo: anticipo);
+    final metodoPago = metodoPagoController.text.trim();
+    final digitos = digitosController.text.trim();
+
+    final alumna = Alumna(
+      nombre: nombre,
+      servicio: servicio,
+      anticipo: anticipo,
+      metodoPago: metodoPago,
+      digitos: digitos,
+    );
 
     setState(() => alumnas.add(alumna));
     await _guardarAlumnas();
@@ -74,10 +83,16 @@ class _RegistroAlumnasViewState extends State<RegistroAlumnasView> {
     ).show(context);
 
     nombreController.clear();
+    servicioController.clear();
     anticipoController.clear();
-    efectivoController.clear();
-    transferenciaController.clear();
-    setState(() => metodoPago = 'Efectivo');
+    metodoPagoController.clear();
+    digitosController.clear();
+
+    // Navega a AccesoAlumnasView y pasa la lista actualizada
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => AccesoAlumnasView()),
+    );
   }
 
   @override
@@ -103,13 +118,10 @@ class _RegistroAlumnasViewState extends State<RegistroAlumnasView> {
                     validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
                   ),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: servicio,
-                    items: ['Dermapen', 'Hilos tensores', 'Aparatología']
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                        .toList(),
-                    onChanged: (val) => setState(() => servicio = val!),
+                  TextFormField(
+                    controller: servicioController,
                     decoration: const InputDecoration(labelText: 'Servicio'),
+                    validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -119,30 +131,18 @@ class _RegistroAlumnasViewState extends State<RegistroAlumnasView> {
                     validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
                   ),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: metodoPago,
-                    items: ['Efectivo', 'Transferencia', 'Efectivo + Transferencia']
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                        .toList(),
-                    onChanged: (val) => setState(() => metodoPago = val!),
-                    decoration: const InputDecoration(labelText: 'Método de Pago'),
+                  TextFormField(
+                    controller: metodoPagoController,
+                    decoration: const InputDecoration(labelText: 'Método de pago'),
+                    validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
                   ),
-                  if (metodoPago == 'Efectivo + Transferencia') ...[
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: efectivoController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Efectivo'),
-                      validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: transferenciaController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Transferencia'),
-                      validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
-                    ),
-                  ],
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: digitosController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    decoration: const InputDecoration(labelText: '4 Dígitos (si aplica)'),
+                  ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
                     onPressed: _registrarAlumna,

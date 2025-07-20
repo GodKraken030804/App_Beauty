@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- Agrega esto
 import 'package:app_beauty/src/views/splash_view.dart';
 import 'package:app_beauty/src/views/home_view.dart';
 import 'package:app_beauty/src/views/Login_View.dart';
@@ -7,7 +8,9 @@ import 'package:app_beauty/src/views/inventario_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_view.dart';
 import 'package:app_beauty/src/views/admin_view.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: "assets/.env"); // <-- Especifica la ruta
   runApp(const MyApp());
 }
 

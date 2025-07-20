@@ -54,7 +54,8 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
       icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
       titleText: Text(
         titulo,
-        style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+            fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
       ),
       messageText: Text(
         mensaje,
@@ -75,13 +76,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
     if (result != null) {
       Uint8List? bytes;
 
-      if (kIsWeb) {
-        bytes = result.files.first.bytes;
-      } else {
-        final path = result.files.first.path;
-        if (path != null) {
-          bytes = await io.File(path).readAsBytes();
-        }
+      final path = result.files.first.path;
+      if (path != null) {
+        bytes = await io.File(path).readAsBytes();
       }
 
       if (bytes == null) {
@@ -102,11 +99,15 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
           final nombre = fila[0]?.value.toString() ?? '';
           final servicio = fila[1]?.value.toString() ?? '';
           final anticipo = double.tryParse(fila[2]?.value.toString() ?? '0') ?? 0;
+          final metodoPago = fila.length > 3 ? fila[3]?.value.toString() ?? '' : '';
+          final digitos = fila.length > 4 ? fila[4]?.value.toString() ?? '' : '';
 
           cargadas.add(Alumna(
             nombre: nombre,
             servicio: servicio,
             anticipo: anticipo,
+            metodoPago: metodoPago,
+            digitos: digitos,
           ));
         }
 
@@ -116,7 +117,8 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
 
         await _guardarAlumnas(cargadas);
 
-        _mostrarNotificacion("Excel cargado", "Se han importado correctamente los datos.");
+        _mostrarNotificacion(
+            "Excel cargado", "Se han importado correctamente los datos.");
       }
     }
   }
@@ -124,9 +126,15 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
   Future<void> _exportarExcel() async {
     final excel = Excel.createExcel();
     final Sheet sheet = excel['Alumnas'];
-    sheet.appendRow(['Nombre', 'Servicio', 'Anticipo']);
+    sheet.appendRow(['Nombre', 'Servicio', 'Anticipo', 'Método de pago', '4 Dígitos']);
     for (var alumna in alumnas) {
-      sheet.appendRow([alumna.nombre, alumna.servicio, alumna.anticipo]);
+      sheet.appendRow([
+        alumna.nombre,
+        alumna.servicio,
+        alumna.anticipo,
+        alumna.metodoPago,
+        alumna.digitos,
+      ]);
     }
 
     final bytes = excel.encode();
@@ -137,38 +145,151 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
       final String path = "$directory/alumnas_exportadas.xlsx";
       final file = io.File(path);
       await file.writeAsBytes(bytes, flush: true);
-      _mostrarNotificacion("Exportación completa", "El archivo se guardó correctamente en $path");
+      _mostrarNotificacion("Exportación completa",
+          "El archivo se guardó correctamente en $path");
+    } else {
+      _mostrarNotificacion("Exportación fallida",
+          "No se seleccionó carpeta de destino.");
     }
   }
 
   void _mostrarDialogoLlegada(int index) {
+    String metodoSeleccionado = alumnas[index].metodoPago;
+    String digitos = alumnas[index].digitos;
+    bool showDigitos = metodoSeleccionado.contains('Transferencia') || metodoSeleccionado.contains('Tarjeta');
+    final formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text('¿${alumnas[index].nombre} llegó?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  alumnas[index].llego = false;
-                });
-                _guardarAlumnas(alumnas);
-                Navigator.pop(context);
-              },
-              child: const Text('No llegó'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  alumnas[index].llego = true;
-                });
-                _guardarAlumnas(alumnas);
-                Navigator.pop(context);
-              },
-              child: const Text('Sí llegó'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: Text('¿${alumnas[index].nombre} asistió?'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: metodoSeleccionado.isEmpty ? null : metodoSeleccionado,
+                      decoration: const InputDecoration(labelText: "Método de pago"),
+                      items: [
+                        'Efectivo',
+                        'Transferencia',
+                        'Tarjeta',
+                        'Efectivo+Tarjeta',
+                        'Efectivo+Transferencia',
+                        'Transferencia+Tarjeta',
+                      ].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          metodoSeleccionado = value ?? '';
+                          showDigitos = metodoSeleccionado.contains('Transferencia') || metodoSeleccionado.contains('Tarjeta');
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Selecciona un método de pago';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (showDigitos)
+                      TextFormField(
+                        initialValue: digitos,
+                        maxLength: 4,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: "Últimos 4 dígitos de la cuenta",
+                        ),
+                        onChanged: (value) {
+                          digitos = value;
+                        },
+                        validator: (value) {
+                          if (showDigitos && (value == null || value.length != 4)) {
+                            return 'Ingresa los 4 dígitos';
+                          }
+                          return null;
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("¿Estás seguro?"),
+                        content: const Text("No se podrán hacer cambios después de confirmar."),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("No"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Sí, confirmar"),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      setState(() {
+                        alumnas[index].llego = true;
+                        alumnas[index].metodoPago = metodoSeleccionado;
+                        alumnas[index].digitos = showDigitos ? digitos : '';
+                      });
+                      await _guardarAlumnas(alumnas);
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('Sí asistió'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("¿Estás seguro?"),
+                        content: const Text("No se podrán hacer cambios después de confirmar."),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("No"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Sí, confirmar"),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      setState(() {
+                        alumnas[index].llego = false;
+                        alumnas[index].metodoPago = metodoSeleccionado;
+                        alumnas[index].digitos = showDigitos ? digitos : '';
+                      });
+                      await _guardarAlumnas(alumnas);
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('No asistió'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -191,32 +312,10 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
               ),
             ),
           ),
-
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                // Botón Subir Excel
-                GestureDetector(
-                  onTap: _importarExcel,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [gradientStart, gradientEnd]),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        "Subir Excel",
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
                 // Lista de alumnas
                 ...alumnas.asMap().entries.map((entry) {
                   int index = entry.key;
@@ -227,15 +326,23 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
                     onTap: () => _mostrarDialogoLlegada(index),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         gradient: llego == null
                             ? null
                             : LinearGradient(
                                 colors: llego
-                                    ? [Colors.green.shade100, Colors.green.shade200]
-                                    : [Colors.red.shade100, Colors.red.shade200],
+                                    ? [
+                                        Colors.green.shade100,
+                                        Colors.green.shade200
+                                      ]
+                                    : [
+                                        Colors.red.shade100,
+                                        Colors.red.shade200
+                                      ],
                               ),
                         color: llego == null ? Colors.white : null,
                         borderRadius: BorderRadius.circular(20),
@@ -252,9 +359,12 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
                           Container(
                             width: 50,
                             height: 50,
-                            decoration: const BoxDecoration(shape: BoxShape.circle),
+                            decoration:
+                                const BoxDecoration(shape: BoxShape.circle),
                             child: ClipOval(
-                              child: Image.asset('assets/images/inscripcion.png', fit: BoxFit.cover),
+                              child: Image.asset(
+                                  'assets/images/inscripcion.png',
+                                  fit: BoxFit.cover),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -264,12 +374,15 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
                               children: [
                                 Text(
                                   alumna.nombre,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   alumna.servicio,
-                                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                                  style: const TextStyle(
+                                      fontSize: 14, color: Colors.grey),
                                 ),
                               ],
                             ),
@@ -293,8 +406,21 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
                               const SizedBox(height: 5),
                               Text(
                                 "\$${alumna.anticipo.toStringAsFixed(0)}",
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
                               ),
+                              if (alumna.metodoPago.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    alumna.metodoPago +
+                                        (alumna.digitos.isNotEmpty ? " (${alumna.digitos})" : ""),
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.purple,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                             ],
                           ),
                         ],
@@ -312,13 +438,41 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [gradientStart, gradientEnd]),
+                      gradient:
+                          LinearGradient(colors: [gradientStart, gradientEnd]),
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: const Center(
                       child: Text(
                         "Exportar Archivo",
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Botón Importar Excel SIEMPRE hasta abajo
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: _importarExcel,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient:
+                          LinearGradient(colors: [gradientStart, gradientEnd]),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Subir Excel",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -349,7 +503,8 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView> {
                         MaterialPageRoute(builder: (_) => OptionsView()),
                       );
                     },
-                    child: const BottomIcon(icon: Icons.home, label: "Principal"),
+                    child:
+                        const BottomIcon(icon: Icons.home, label: "Principal"),
                   ),
                   const BottomIcon(icon: Icons.person, label: "Mi Perfil"),
                 ],
@@ -366,7 +521,8 @@ class BottomIcon extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const BottomIcon({required this.icon, required this.label, Key? key}) : super(key: key);
+  const BottomIcon({required this.icon, required this.label, Key? key})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {

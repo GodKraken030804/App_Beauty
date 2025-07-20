@@ -1,27 +1,35 @@
 class Alumna {
-  final String nombre;
-  final String servicio;
-  final double anticipo;
-  bool llego; // nueva propiedad
+  String nombre;
+  String servicio;
+  double anticipo;
+  String metodoPago;
+  String digitos;
+  bool? llego;
 
   Alumna({
     required this.nombre,
     required this.servicio,
     required this.anticipo,
-    this.llego = false,
+    this.metodoPago = '',
+    this.digitos = '',
+    this.llego,
   });
-
-  Map<String, dynamic> toJson() => {
-        'nombre': nombre,
-        'servicio': servicio,
-        'anticipo': anticipo,
-        'llego': llego,
-      };
 
   factory Alumna.fromJson(Map<String, dynamic> json) => Alumna(
         nombre: json['nombre'],
         servicio: json['servicio'],
         anticipo: (json['anticipo'] as num).toDouble(),
-        llego: json['llego'] ?? false,
+        metodoPago: json['metodoPago'] ?? '',
+        digitos: json['digitos'] ?? '',
+        llego: json['llego'],
       );
+
+  Map<String, dynamic> toJson() => {
+        'nombre': nombre,
+        'servicio': servicio,
+        'anticipo': anticipo,
+        'metodoPago': metodoPago,
+        'digitos': digitos,
+        'llego': llego,
+      };
 }

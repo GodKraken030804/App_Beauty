@@ -39,6 +39,10 @@ dependencies:
   universal_html: ^2.2.3
   image_picker: ^0.8.7+3
   jwt_decoder: ^2.0.1
+  path_provider: ^2.0.11
+  permission_handler: ^11.0.0
+  share_plus: ^7.2.1
+  flutter_dotenv: ^5.1.0
 
   
 
@@ -79,6 +83,7 @@ flutter:
    - assets/images/acceso.png
    - assets/images/ventas.png
    - assets/images/inventario.png
+   - assets/.env
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

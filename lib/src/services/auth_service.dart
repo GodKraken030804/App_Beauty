@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
-  final String _loginUrl = 'http://3.230.107.32:3002/api/v1/loginNew';
+  final String _loginUrl = '${dotenv.env['API_EMPRESA']}api/v1/loginNew';
 
   Future<User?> login(String email, String password) async {
     try {

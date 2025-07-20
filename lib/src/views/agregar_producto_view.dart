@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:another_flushbar/flushbar.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Importar dotenv
+
 
 class AgregarProductoView extends StatefulWidget {
   const AgregarProductoView({super.key});
@@ -39,7 +41,7 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
   Future<void> _guardarProducto() async {
     if (_formKey.currentState!.validate()) {
       try {
-        final uri = Uri.parse('http://3.235.82.25:3000/registrar-producto');
+        final uri = Uri.parse('${dotenv.env['API_GATEWAY']}registrar-producto');
         final request = http.MultipartRequest('POST', uri);
 
         request.fields['nombre'] = _nombreController.text.trim();

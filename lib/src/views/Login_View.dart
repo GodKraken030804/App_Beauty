@@ -65,8 +65,10 @@ class _LoginViewState extends State<LoginView> {
           await prefs.setString('email', user.email);
           await prefs.setBool('notificacion_mostrada', false);
 
-          // 👇 NUEVO: Decodificar token para obtener el rol
+          debugPrint('Token guardado: ${user.token}');
           final decodedToken = JwtDecoder.decode(user.token);
+          debugPrint('Payload decodificado: $decodedToken');
+
           final rol = decodedToken['rol'] ?? 'default';
 
           // 👇 NUEVO: Determinar vista de destino según el rol

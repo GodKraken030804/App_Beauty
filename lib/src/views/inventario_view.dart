@@ -1,10 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:excel/excel.dart';
-import 'dart:typed_data';
+import 'dart:convert';
 import 'dart:io' as io;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' as flutter;
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:http/http.dart' as http;
+import 'package:excel/excel.dart' as excel;
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ProductosExcelView extends StatefulWidget {
   const ProductosExcelView({super.key});
@@ -14,94 +18,176 @@ class ProductosExcelView extends StatefulWidget {
 }
 
 class _ProductosExcelViewState extends State<ProductosExcelView> {
-  List<Map<String, String>> productos = [];
+  List productosAsignados = [];
+  final List<Color> gradientColors = const [Color(0xFFF26AB6), Color(0xFFAA57EC)];
 
-  Future<void> _importarExcel() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx'],
-    );
+  @override
+  void initState() {
+    super.initState();
+    _fetchProductosAsignados();
+  }
 
-    if (result != null) {
-      Uint8List? bytes;
+  Future<void> _fetchProductosAsignados() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return;
 
-      if (kIsWeb) {
-        bytes = result.files.first.bytes;
-      } else {
-        final path = result.files.first.path;
-        if (path != null) {
-          bytes = await io.File(path).readAsBytes();
+    final userId = JwtDecoder.decode(token)['id'];
+    final asignadoUri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/asignado');
+    final productoUri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/producto');
+
+    try {
+      final asignadoRes = await http.get(asignadoUri);
+      final productoRes = await http.get(productoUri);
+
+      if (asignadoRes.statusCode == 200 && productoRes.statusCode == 200) {
+        final asignaciones = jsonDecode(asignadoRes.body);
+        final productosAll = jsonDecode(productoRes.body);
+
+        final asignadosUsuario = asignaciones.where((a) => a['iduser'] == userId).toList();
+        final Map<int, dynamic> productosAgrupados = {};
+
+        for (var a in asignadosUsuario) {
+          final producto = productosAll.firstWhere((p) => p['id'] == a['idproduc'], orElse: () => null);
+          if (producto != null) {
+            final pid = producto['id'];
+            if (productosAgrupados.containsKey(pid)) {
+              productosAgrupados[pid]['cantidad_asignada'] += a['cantidad'];
+            } else {
+              final nuevo = Map<String, dynamic>.from(producto);
+              nuevo['cantidad_asignada'] = a['cantidad'];
+              productosAgrupados[pid] = nuevo;
+            }
+          }
         }
-      }
 
-      if (bytes == null) return;
-
-      final excel = Excel.decodeBytes(bytes);
-      final sheet = excel.tables[excel.tables.keys.first];
-
-      if (sheet == null) return;
-
-      List<Map<String, String>> lista = [];
-
-      for (int i = 1; i < sheet.maxRows; i++) {
-        final fila = sheet.row(i);
-        lista.add({
-          'producto': fila[0]?.value.toString() ?? '',
-          'precio': (fila[1]?.value is double)
-              ? '\$${(fila[1]!.value as double).toStringAsFixed(2)}'
-              : (fila[1]?.value is DateTime)
-                  ? 'Formato inválido'
-                  : fila[1]?.value.toString() ?? '',
-          'codigo': fila[2]?.value.toString() ?? '',
-          'barra': fila[3]?.value.toString() ?? '',
+        setState(() {
+          productosAsignados = productosAgrupados.values.toList();
         });
       }
-
-      setState(() {
-        productos = lista;
-      });
+    } catch (e) {
+      debugPrint('Error al cargar productos asignados: $e');
     }
+  }
+
+  Widget _botonGradiente(String texto, VoidCallback onPressed, {IconData? icon}) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradientColors),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+            ],
+            Text(texto, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Productos desde Excel')),
-      body: Column(
+      backgroundColor: const Color(0xFFF3F3F3),
+      appBar: AppBar(
+        title: const Text("Productos Asignados", style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFFAA57EC),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: productosAsignados.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : GridView.builder(
+                itemCount: productosAsignados.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.75,
+                ),
+                itemBuilder: (context, index) {
+                  final producto = productosAsignados[index];
+                  final imagenNombre = (producto['imagen'] ?? '').toString().split('/').last;
+                  final imagenUrl = "${dotenv.env['API_GATEWAY']}imagenes/$imagenNombre";
+                  final cantidad = producto['cantidad_asignada'] ?? 0;
+
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            imagenUrl,
+                            height: 80,
+                            width: 80,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.broken_image, size: 80, color: Colors.grey);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          producto['nombre'] ?? '',
+                          style: const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: gradientColors),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "$cantidad",
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 6),
+                              const Text("Unidades", style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: _importarExcel,
-            child: const Text('Subir Excel'),
-          ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: GridView.count(
-              padding: const EdgeInsets.all(12),
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.5,
-              children: productos.map((p) {
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 195, 19, 142).withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: flutter.Border.all(color: Colors.pinkAccent.shade100),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Producto: ${p['producto']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Precio: ${p['precio']}'),
-                      Text('Código de producto: ${p['codigo']}'),
-                      Text('Código de barras: ${p['barra']}'),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+          FloatingActionButton(
+            heroTag: 'historial',
+            backgroundColor: const Color(0xFFAA57EC),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                builder: (_) => const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text("Aquí se mostrará el historial", style: TextStyle(fontSize: 16)),
+                ),
+              );
+            },
+            child: const Icon(Icons.history),
           ),
         ],
       ),
