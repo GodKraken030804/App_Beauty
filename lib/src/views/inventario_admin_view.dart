@@ -39,7 +39,7 @@ class _InventarioViewState extends State<InventarioView> {
           productos = jsonDecode(response.body);
           productosFiltrados = productos;
         });
-        debugPrint(productos.toString()); // Imprime en consola la variable productos
+        debugPrint(productos.toString()); 
       }
     } catch (e) {
       debugPrint('Error al obtener productos: $e');
@@ -257,8 +257,22 @@ class _InventarioViewState extends State<InventarioView> {
                                 }),
                               );
 
-                              // Relación iduser-idproduc-cantidad
-                            
+                              // Actualiza la cantidad en producto
+                              final nuevaCantidad = (producto['cantidad'] ?? 0) - cantidad;
+                              await http.put(
+                                Uri.parse('${dotenv.env['API_GATEWAY']}actualizar-producto/${producto['id']}'),
+                                headers: {'Content-Type': 'application/json'},
+                                body: jsonEncode({
+                                  'nombre': producto['nombre'],
+                                  'cantidad': nuevaCantidad, // Solo este campo cambia
+                                  'precio': producto['precio'],
+                                  'imagen': producto['imagen'],
+                                }),
+                              );
+
+                              setState(() {
+                                producto['cantidad'] = nuevaCantidad;
+                              });
 
                               Navigator.pop(context); // cerrar modal asignar
                               Navigator.pop(context); // cerrar modal producto
@@ -423,57 +437,94 @@ class _InventarioViewState extends State<InventarioView> {
                   final imagenNombre = (producto['imagen'] ?? '').toString().split('/').last;
                   final imagenUrl = "${dotenv.env['API_GATEWAY']}imagenes/$imagenNombre";
                   final cantidad = producto['cantidad'] ?? 0;
+                  final precio = producto['precio'] ?? '0';
 
                   return GestureDetector(
                     onTap: () => _abrirDialogoProducto(producto),
                     child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         border: cantidad < 10 ? Border.all(color: Colors.red, width: 2) : null,
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2, 2))],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              imagenUrl,
-                              height: 80,
-                              width: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.broken_image, size: 80, color: Colors.grey);
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            producto['nombre'] ?? '',
-                            style: const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(colors: gradientColors),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "$cantidad",
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(width: 6),
-                                const Text("Unidades", style: TextStyle(color: Colors.white)),
-                              ],
-                            ),
-                          ),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(2, 2)),
                         ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                imagenUrl,
+                                height: 70,
+                                width: 70,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(Icons.broken_image, size: 70, color: Colors.grey);
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              producto['nombre'] ?? '',
+                              style: const TextStyle(
+                                color: Colors.purple,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(colors: gradientColors),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.inventory_2, color: Colors.white, size: 18),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "$cantidad",
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Text("Unidades", style: TextStyle(color: Colors.white)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.attach_money, color: Colors.purple, size: 18),
+                                  Text(
+                                    "$precio",
+                                    style: const TextStyle(
+                                      color: Colors.purple,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );

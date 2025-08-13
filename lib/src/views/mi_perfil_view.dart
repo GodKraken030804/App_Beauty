@@ -109,7 +109,7 @@ class _MiPerfilViewState extends State<MiPerfilView> {
             const SizedBox(height: 12),
 
             const Text(
-              'Andrés Guízar Gómez',
+              'Jorge Arturo Molina Gomez',
               style: TextStyle(
                 color: Color(0xFFAA57EC),
                 fontWeight: FontWeight.bold,

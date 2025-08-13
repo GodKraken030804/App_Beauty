@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-// Importa aquí tus vistas reales
-// import 'package:app_beauty/views/registro_alumnas_view.dart';
 import 'package:app_beauty/src/views/agregar_producto_view.dart';
 import 'package:app_beauty/src/views/inventario_admin_view.dart';
+import 'package:app_beauty/src/views/crear_curso_view.dart';
+import 'package:app_beauty/src/views/cursos_view.dart';
 
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -22,10 +22,10 @@ class _AdminViewState extends State<AdminView> {
          destino = const InventarioView();
         break;
       case "Creación De Curso":
-        // destino = const CrearCursoView();
+        destino = const CrearCursoView();
         break;
       case "Administrar Cursos":
-        // destino = const AdminCursosView();
+        destino = const CursosView();
         break;
       case "Administrar Encargados":
         // destino = const AdminEncargadosView();
