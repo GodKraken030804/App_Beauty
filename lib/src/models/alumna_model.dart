@@ -15,6 +15,8 @@ class Alumna {
     this.llego,
   });
 
+  
+
   factory Alumna.fromJson(Map<String, dynamic> json) => Alumna(
         nombre: json['nombre'],
         servicio: json['servicio'],
@@ -32,4 +34,6 @@ class Alumna {
         'digitos': digitos,
         'llego': llego,
       };
+
+      
 }

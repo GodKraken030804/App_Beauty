@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
-import 'package:app_beauty/src/views/acceso_alumnas_view.dart';
 import 'package:app_beauty/src/views/inventario_view.dart';
+import 'package:app_beauty/src/views/ventas_view.dart';
 import 'registro_alumnas_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_view.dart';
-
-
+import 'package:app_beauty/src/views/cursos_administradores_view.dart';
 
 class OptionsView extends StatefulWidget {
   const OptionsView({super.key});
@@ -19,6 +18,7 @@ class OptionsView extends StatefulWidget {
 class _OptionsViewState extends State<OptionsView> {
   final Color gradientStart = const Color(0xFFF26AB6);
   final Color gradientEnd = const Color(0xFFAA57EC);
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -47,7 +47,8 @@ class _OptionsViewState extends State<OptionsView> {
       icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
       titleText: const Text(
         "¡Bienvenido!",
-        style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+            fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
       ),
       messageText: const Text(
         "Inicio de sesión exitoso.",
@@ -60,182 +61,133 @@ class _OptionsViewState extends State<OptionsView> {
 
   @override
   Widget build(BuildContext context) {
+    // final size = MediaQuery.of(context).size; // No utilizado actualmente
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
-      body: Column(
-        children: [
-          // Logo
-          Container(
-            padding: const EdgeInsets.only(top: 20, bottom: 10),
-            child: SizedBox(
-              height: 250,
-              child: Image.asset(
-                'assets/images/Logo.png',
-                fit: BoxFit.contain,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Logo
+            Container(
+              padding: const EdgeInsets.only(top: 20, bottom: 4),
+              child: SizedBox(
+                height: 180,
+                child: Image.asset(
+                  'assets/images/Logo.png',
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
-          ),
-
-          // Cuatro botones
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              padding: const EdgeInsets.all(16),
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              children: [
-                MenuButton(
-                  imageAsset: 'assets/images/inscripcion.png',
-                  label: 'Inscripción De Alumnas',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const RegistroAlumnasView()),
-                    );
-                  },
-                ),
-
-                MenuButton(
-                  imageAsset: 'assets/images/acceso.png',
-                  label: 'Acceso De Alumnas',
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (context) => const AccesoAlumnasView(),
-                    ));
-                  },
-                ),
-                MenuButton(
-                  imageAsset: 'assets/images/ventas.png',
-                  label: 'Ventas',
-                  onTap: () {
-                    // Navegar a vista de ventas
-                  },
-                ),
-                MenuButton(
-                  imageAsset: 'assets/images/inventario.png',
-                  label: 'Inventario',
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (context) => const ProductosExcelView(),
-                    ));
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // Barra inferior
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [gradientStart, gradientEnd],
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(25),
-                topRight: Radius.circular(25),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 13),
-            child: SizedBox(
-              height: 100,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            // Cuatro botones
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: GridView.count(
+                crossAxisCount: 2,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.65, // más alto (~+30%)
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      // Ya estás en la vista Principal
-                    },
-                    child: const BottomIcon(icon: Icons.home, label: "Principal"),
-                  ),
-                  GestureDetector(
+                  MenuButton(
+                    imageAsset: 'assets/images/inscripcion.png',
+                    label: 'Inscribir Alumnas',
+                    gradientStart: gradientStart,
+                    gradientEnd: gradientEnd,
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                        MaterialPageRoute(
+                            builder: (_) => const RegistroAlumnasView()),
                       );
                     },
-                    child: const BottomIcon(icon: Icons.person, label: "Mi Perfil"),
+                  ),
+                  MenuButton(
+                    imageAsset: 'assets/images/acceso.png',
+                    label: 'Acceso De Alumnas',
+                    gradientStart: gradientStart,
+                    gradientEnd: gradientEnd,
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const CursosAdministradoresView(),
+                          ));
+                    },
+                  ),
+                  MenuButton(
+                    imageAsset: 'assets/images/ventas.png',
+                    label: 'Ventas',
+                    gradientStart: gradientStart,
+                    gradientEnd: gradientEnd,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const VentasView()),
+                      );
+                    },
+                  ),
+                  MenuButton(
+                    imageAsset: 'assets/images/inventario.png',
+                    label: 'Inventario',
+                    gradientStart: gradientStart,
+                    gradientEnd: gradientEnd,
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ProductosExcelView(),
+                          ));
+                    },
                   ),
                 ],
-
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
-}
-
-// ------------------------------
-// Botón animado personalizado con imagen
-// ------------------------------
-class MenuButton extends StatefulWidget {
-  final String imageAsset;
-  final String label;
-  final VoidCallback onTap;
-
-  const MenuButton({
-    required this.imageAsset,
-    required this.label,
-    required this.onTap,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  State<MenuButton> createState() => _MenuButtonState();
-}
-
-class _MenuButtonState extends State<MenuButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-      lowerBound: 0.0,
-      upperBound: 0.05,
-    );
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(_controller);
-  }
-
-  void _onTapDown(_) => _controller.forward();
-  void _onTapUp(_) => _controller.reverse();
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _controller.reverse,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
-            ),
-            borderRadius: BorderRadius.circular(20),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [gradientStart, gradientEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(widget.imageAsset, height: 90, fit: BoxFit.contain),
-              const SizedBox(height: 10),
-              Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 22,
-                ),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+        ),
+        child: SizedBox(
+          height: 70,
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.white70,
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() => _currentIndex = index);
+              if (index == 0) {
+                // Ya estás en Principal, no hace nada
+              } else if (index == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                );
+              }
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: "Principal",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person),
+                label: "Mi Perfil",
               ),
             ],
           ),
@@ -246,27 +198,73 @@ class _MenuButtonState extends State<MenuButton>
 }
 
 // ------------------------------
-// Ícono inferior personalizado
+// Botón animado personalizado con imagen
 // ------------------------------
-class BottomIcon extends StatelessWidget {
-  final IconData icon;
+class MenuButton extends StatelessWidget {
+  final String imageAsset;
   final String label;
+  final VoidCallback onTap;
+  final Color gradientStart;
+  final Color gradientEnd;
 
-  const BottomIcon({required this.icon, required this.label, Key? key})
-      : super(key: key);
+  const MenuButton({
+    required this.imageAsset,
+    required this.label,
+    required this.gradientStart,
+    required this.gradientEnd,
+    required this.onTap,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: Colors.white, size: 45),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 22),
+    // Replica exacta del estilo de Login_View: ElevatedButton + Ink con gradiente,
+    // borde 15, elevación 5, ripple al presionar.
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.all(18),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
         ),
-      ],
+        elevation: 5,
+        shadowColor: Colors.grey.withOpacity(0.5),
+      ),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [gradientStart, gradientEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Container(
+          // sin minHeight fija para que el Grid pueda crecer
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(imageAsset, height: 108, fit: BoxFit.contain),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

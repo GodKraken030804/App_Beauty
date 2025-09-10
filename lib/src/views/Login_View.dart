@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
-import 'package:jwt_decoder/jwt_decoder.dart'; // 👈 NUEVO
+import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import 'options_view.dart';
@@ -19,7 +20,12 @@ class _LoginViewState extends State<LoginView> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscurePassword = true;
   final AuthService _authService = AuthService();
+  
+  // Colores del gradiente
+  final Color gradientStart = const Color(0xFFF26AB6);
+  final Color gradientEnd = const Color(0xFFAA57EC);
 
   @override
   void dispose() {
@@ -35,14 +41,14 @@ class _LoginViewState extends State<LoginView> {
       backgroundColor: Colors.redAccent,
       flushbarPosition: FlushbarPosition.TOP,
       icon: const Icon(Icons.error, color: Colors.white, size: 28),
-      titleText: const Text(
+      titleText: Text(
         "Error",
-        style: TextStyle(
+        style: GoogleFonts.poppins(
             fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
       ),
       messageText: Text(
         mensaje,
-        style: const TextStyle(fontSize: 16, color: Colors.white),
+        style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
       ),
       duration: const Duration(seconds: 3),
       animationDuration: const Duration(milliseconds: 500),
@@ -71,7 +77,7 @@ class _LoginViewState extends State<LoginView> {
 
           final rol = decodedToken['rol'] ?? 'default';
 
-          // 👇 NUEVO: Determinar vista de destino según el rol
+          // 👇 Determinar vista de destino según el rol
           Widget destino;
           if (rol == 'admin') {
             destino = const AdminView();
@@ -114,7 +120,7 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF3F3F3),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -123,84 +129,163 @@ class _LoginViewState extends State<LoginView> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                Image.asset(
-                  'assets/images/Logo.png',
-                  width: 300,
-                  height: 200,
-                  fit: BoxFit.contain,
+                // Logo
+                Container(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(
+                    height: 180,
+                    child: Image.asset(
+                      'assets/images/Logo.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 30),
-                const Text(
+                Text(
                   'Iniciar Sesión',
-                  style: TextStyle(
-                    fontSize: 24,
+                  style: GoogleFonts.poppins(
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 40),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Correo electrónico',
-                    prefixIcon: const Icon(Icons.email),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                // Campo de email
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        spreadRadius: 2,
+                        blurRadius: 7,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa tu correo';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Ingresa un correo válido';
-                    }
-                    return null;
-                  },
+                  child: TextFormField(
+                    controller: _emailController,
+                    style: GoogleFonts.poppins(),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      labelText: 'Correo electrónico',
+                      labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+                      prefixIcon: const Icon(Icons.email, color: Color(0xFFF26AB6)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor ingresa tu correo';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Ingresa un correo válido';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                // Campo de contraseña
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        spreadRadius: 2,
+                        blurRadius: 7,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa tu contraseña';
-                    }
-                    if (value.length < 6) {
-                      return 'La contraseña debe tener al menos 6 caracteres';
-                    }
-                    return null;
-                  },
+                  child: TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    style: GoogleFonts.poppins(),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      labelText: 'Contraseña',
+                      labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+                      prefixIcon: const Icon(Icons.lock, color: Color(0xFFF26AB6)),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          color: const Color(0xFFF26AB6),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor ingresa tu contraseña';
+                      }
+                      if (value.length < 6) {
+                        return 'La contraseña debe tener al menos 6 caracteres';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 30),
+                // Botón de inicio de sesión
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : () => _login(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pink[400],
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 5,
+                      shadowColor: Colors.grey.withOpacity(0.5),
+                    ),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [gradientStart, gradientEnd],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Container(
+                        alignment: Alignment.center,
+                        constraints: const BoxConstraints(minHeight: 50),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                                'Ingresar',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            'Ingresar',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
                   ),
                 ),
                 const SizedBox(height: 20),

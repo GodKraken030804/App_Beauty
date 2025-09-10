@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
+import 'package:app_beauty/src/views/admin_view.dart';
+import 'package:app_beauty/src/views/mi_perfil_admin.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:another_flushbar/flushbar.dart';
 
 class CrearCursoView extends StatefulWidget {
   const CrearCursoView({super.key});
@@ -20,6 +24,7 @@ class _CrearCursoViewState extends State<CrearCursoView> {
   final Color gradientStart = const Color(0xFFF26AB6);
   final Color gradientEnd = const Color(0xFFAA57EC);
 
+  // Selección de fechas
   Future<void> _selectDate(BuildContext context, bool isInicio) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -38,6 +43,7 @@ class _CrearCursoViewState extends State<CrearCursoView> {
     }
   }
 
+  // Creación de curso
   Future<void> _crearCurso() async {
     if (_formKey.currentState!.validate() && fechaInicio != null && fechaFin != null) {
       final url = Uri.parse('${dotenv.env['API_EMPRESA']!.trim()}api/v1/curso');
@@ -57,19 +63,27 @@ class _CrearCursoViewState extends State<CrearCursoView> {
         );
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text("¡Éxito!"),
-              content: const Text("El curso se creó correctamente."),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("OK"),
-                ),
-              ],
+          Flushbar(
+            margin: const EdgeInsets.all(20),
+            borderRadius: BorderRadius.circular(15),
+            backgroundColor: gradientStart,
+            flushbarPosition: FlushbarPosition.TOP,
+            icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
+            titleText: Text(
+              "¡Éxito!",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          );
+            messageText: Text(
+              "El curso se creó correctamente.",
+              style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
+            ),
+            duration: const Duration(seconds: 3),
+            animationDuration: const Duration(milliseconds: 500),
+          ).show(context);
           nombreController.clear();
           ciudadController.clear();
           setState(() {
@@ -77,34 +91,50 @@ class _CrearCursoViewState extends State<CrearCursoView> {
             fechaFin = null;
           });
         } else {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text("Error"),
-              content: Text("No se pudo crear el curso.\n${response.body}"),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("OK"),
-                ),
-              ],
+          Flushbar(
+            margin: const EdgeInsets.all(20),
+            borderRadius: BorderRadius.circular(15),
+            backgroundColor: Colors.redAccent,
+            flushbarPosition: FlushbarPosition.TOP,
+            icon: const Icon(Icons.error, color: Colors.white, size: 28),
+            titleText: Text(
+              "Error",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          );
+            messageText: Text(
+              "No se pudo crear el curso.\n${response.body}",
+              style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
+            ),
+            duration: const Duration(seconds: 3),
+            animationDuration: const Duration(milliseconds: 500),
+          ).show(context);
         }
       } catch (e) {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Error"),
-            content: Text("Ocurrió un error: $e"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("OK"),
-              ),
-            ],
+        Flushbar(
+          margin: const EdgeInsets.all(20),
+          borderRadius: BorderRadius.circular(15),
+          backgroundColor: Colors.redAccent,
+          flushbarPosition: FlushbarPosition.TOP,
+          icon: const Icon(Icons.error, color: Colors.white, size: 28),
+          titleText: Text(
+            "Error",
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        );
+          messageText: Text(
+            "Ocurrió un error: $e",
+            style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
+          ),
+          duration: const Duration(seconds: 3),
+          animationDuration: const Duration(milliseconds: 500),
+        ).show(context);
       }
     }
   }
@@ -112,157 +142,246 @@ class _CrearCursoViewState extends State<CrearCursoView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // <-- Fondo blanco
+      backgroundColor: const Color(0xFFF3F3F3),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    Image.asset(
-                      'assets/images/Logo.png',
-                      height: 80,
-                      fit: BoxFit.contain,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 6,
+                      offset: const Offset(2, 4),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Creación De Curso",
-                      style: TextStyle(
-                        color: gradientStart,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    TextFormField(
-                      controller: nombreController,
-                      decoration: const InputDecoration(
-                        labelText: "Nombre De Curso",
-                        labelStyle: TextStyle(color: Color(0xFFF26AB6)),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFFF26AB6)),
+                  ],
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 160,
+                        child: Image.asset(
+                          'assets/images/Logo.png',
+                          fit: BoxFit.contain,
                         ),
                       ),
-                      validator: (v) =>
-                          v == null || v.isEmpty ? "Campo obligatorio" : null,
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: ciudadController,
-                      decoration: const InputDecoration(
-                        labelText: "Ciudad",
-                        labelStyle: TextStyle(color: Color(0xFFF26AB6)),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFFF26AB6)),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Creación De Curso",
+                        style: GoogleFonts.poppins(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
                         ),
                       ),
-                      validator: (v) =>
-                          v == null || v.isEmpty ? "Campo obligatorio" : null,
-                    ),
-                    const SizedBox(height: 14),
-                    GestureDetector(
-                      onTap: () => _selectDate(context, true),
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          decoration: InputDecoration(
-                            labelText: "Fecha De Inicio",
-                            labelStyle: const TextStyle(color: Color(0xFFF26AB6)),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFF26AB6)),
+                      const SizedBox(height: 30),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              spreadRadius: 2,
+                              blurRadius: 7,
+                              offset: const Offset(0, 3),
                             ),
-                            suffixIcon: const Icon(Icons.calendar_today, color: Color(0xFFF26AB6)),
-                          ),
-                          controller: TextEditingController(
-                            text: fechaInicio == null
-                                ? ""
-                                : "${fechaInicio!.day}/${fechaInicio!.month}/${fechaInicio!.year}",
+                          ],
+                        ),
+                        child: TextFormField(
+                          controller: nombreController,
+                          style: GoogleFonts.poppins(),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            labelText: 'Nombre De Curso',
+                            labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+                            prefixIcon: const Icon(Icons.create, color: Color(0xFFF26AB6)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                            ),
                           ),
                           validator: (v) =>
-                              fechaInicio == null ? "Selecciona una fecha" : null,
+                              v == null || v.isEmpty ? "Campo obligatorio" : null,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    GestureDetector(
-                      onTap: () => _selectDate(context, false),
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          decoration: InputDecoration(
-                            labelText: "Fecha De Fin",
-                            labelStyle: const TextStyle(color: Color(0xFFF26AB6)),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFF26AB6)),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              spreadRadius: 2,
+                              blurRadius: 7,
+                              offset: const Offset(0, 3),
                             ),
-                            suffixIcon: const Icon(Icons.calendar_today, color: Color(0xFFF26AB6)),
-                          ),
-                          controller: TextEditingController(
-                            text: fechaFin == null
-                                ? ""
-                                : "${fechaFin!.day}/${fechaFin!.month}/${fechaFin!.year}",
+                          ],
+                        ),
+                        child: TextFormField(
+                          controller: ciudadController,
+                          style: GoogleFonts.poppins(),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            labelText: 'Ciudad',
+                            labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+                            prefixIcon: const Icon(Icons.location_city, color: Color(0xFFF26AB6)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                            ),
                           ),
                           validator: (v) =>
-                              fechaFin == null ? "Selecciona una fecha" : null,
+                              v == null || v.isEmpty ? "Campo obligatorio" : null,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: _crearCurso,
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          elevation: 0,
-                          backgroundColor: gradientStart,
-                          foregroundColor: Colors.white,
-                        ).copyWith(
-                          backgroundColor: MaterialStateProperty.resolveWith(
-                            (states) => null,
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              spreadRadius: 2,
+                              blurRadius: 7,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: GestureDetector(
+                          onTap: () => _selectDate(context, true),
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              style: GoogleFonts.poppins(),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white,
+                                labelText: 'Fecha De Inicio',
+                                labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+                                prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFFF26AB6)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                                ),
+                              ),
+                              controller: TextEditingController(
+                                text: fechaInicio == null
+                                    ? ""
+                                    : "${fechaInicio!.day}/${fechaInicio!.month}/${fechaInicio!.year}",
+                              ),
+                              validator: (v) =>
+                                  fechaInicio == null ? "Selecciona una fecha" : null,
+                            ),
                           ),
                         ),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [gradientStart, gradientEnd],
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              spreadRadius: 2,
+                              blurRadius: 7,
+                              offset: const Offset(0, 3),
                             ),
-                            borderRadius: BorderRadius.circular(18),
+                          ],
+                        ),
+                        child: GestureDetector(
+                          onTap: () => _selectDate(context, false),
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              style: GoogleFonts.poppins(),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white,
+                                labelText: 'Fecha De Fin',
+                                labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+                                prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFFF26AB6)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                                ),
+                              ),
+                              controller: TextEditingController(
+                                text: fechaFin == null
+                                    ? ""
+                                    : "${fechaFin!.day}/${fechaFin!.month}/${fechaFin!.year}",
+                              ),
+                              validator: (v) =>
+                                  fechaFin == null ? "Selecciona una fecha" : null,
+                            ),
                           ),
-                          child: Container(
-                            alignment: Alignment.center,
-                            child: const Text(
-                              "Crear Curso",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _crearCurso,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            elevation: 5,
+                            shadowColor: Colors.grey.withOpacity(0.5),
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [gradientStart, gradientEnd],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Container(
+                              alignment: Alignment.center,
+                              constraints: const BoxConstraints(minHeight: 50),
+                              child: Text(
+                                'Crear Curso',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -273,22 +392,43 @@ class _CrearCursoViewState extends State<CrearCursoView> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
         ),
-        child: BottomNavigationBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white70,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: "Principal",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person),
-              label: "Mi Perfil",
-            ),
-          ],
+        child: SizedBox(
+          height: 70,
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.white70,
+            onTap: (index) {
+              if (index == 0) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminView()),
+                  (route) => false,
+                );
+              } else if (index == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MiPerfilAdmin()),
+                );
+              }
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: "Principal",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person),
+                label: "Mi Perfil",
+              ),
+            ],
+          ),
         ),
       ),
     );

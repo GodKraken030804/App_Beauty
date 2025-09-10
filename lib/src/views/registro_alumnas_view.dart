@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:another_flushbar/flushbar.dart';
-import 'package:excel/excel.dart';
-import 'dart:typed_data';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
-import 'dart:io' as io;
-import 'package:flutter/foundation.dart';
-import '../models/alumna_model.dart';
-import 'options_view.dart';
-import 'acceso_alumnas_view.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'registrar_alumnas_nuevas_view.dart';
+import 'package:app_beauty/src/views/mi_perfil_view.dart';
 
 class RegistroAlumnasView extends StatefulWidget {
   const RegistroAlumnasView({super.key});
@@ -18,193 +15,493 @@ class RegistroAlumnasView extends StatefulWidget {
   State<RegistroAlumnasView> createState() => _RegistroAlumnasViewState();
 }
 
-class _RegistroAlumnasViewState extends State<RegistroAlumnasView> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController nombreController = TextEditingController();
-  final TextEditingController servicioController = TextEditingController();
-  final TextEditingController anticipoController = TextEditingController();
-  final TextEditingController metodoPagoController = TextEditingController();
-  final TextEditingController digitosController = TextEditingController();
+class _RegistroAlumnasViewState extends State<RegistroAlumnasView>
+    with SingleTickerProviderStateMixin {
+  List<dynamic> cursosAsignados = [];
+  bool isLoading = true;
+  final Color gradientStart = const Color(0xFFF26AB6);
+  final Color gradientEnd = const Color(0xFFAA57EC);
 
-  List<Alumna> alumnas = [];
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _cargarAlumnasGuardadas();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _animationController.forward();
+    _fetchCursosAsignados();
   }
 
-  Future<void> _cargarAlumnasGuardadas() async {
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildAnimatedButton(
+      {required Widget child, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: child,
+      ),
+    );
+  }
+
+  void _showGradientNotification(String title, String message,
+      {bool isError = false}) {
+    final colors = isError
+        ? [Colors.red.shade400, Colors.red.shade600]
+        : [gradientStart, gradientEnd];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: colors),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isError ? Icons.error_outline : Icons.check_circle_outline,
+                  color: Colors.white,
+                  size: 50,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    'Aceptar',
+                    style: GoogleFonts.poppins(
+                      color: gradientStart,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<int?> _getUserIdFromToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('alumnas_guardadas');
-    if (data != null) {
-      final jsonList = jsonDecode(data) as List;
+    final token = prefs.getString('token');
+
+    if (token != null) {
+      try {
+        final decodedToken = JwtDecoder.decode(token);
+        return decodedToken['id'] as int?;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _fetchCursosAsignados() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final userId = await _getUserIdFromToken();
+
+      if (userId == null) {
+        _showGradientNotification("Error", "No se pudo identificar al usuario",
+            isError: true);
+        return;
+      }
+
+      final asignacionesUrl =
+          Uri.parse('${dotenv.env['API_EMPRESA']!.trim()}api/v1/asignar-curso');
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final asignacionesResponse = await http.get(
+        asignacionesUrl,
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (asignacionesResponse.statusCode == 200) {
+        final asignaciones = jsonDecode(asignacionesResponse.body) as List;
+
+        final asignacionesUsuario = asignaciones
+            .where((asignacion) => asignacion['id_encargado'] == userId)
+            .toList();
+
+        final cursosUrl =
+            Uri.parse('${dotenv.env['API_EMPRESA']!.trim()}api/v1/curso');
+        final cursosResponse = await http.get(cursosUrl);
+
+        if (cursosResponse.statusCode == 200) {
+          final todosLosCursos = jsonDecode(cursosResponse.body) as List;
+
+          final cursosDelUsuario = todosLosCursos.where((curso) {
+            return asignacionesUsuario
+                .any((asignacion) => asignacion['id_curso'] == curso['id']);
+          }).toList();
+
+          setState(() {
+            cursosAsignados = cursosDelUsuario;
+            isLoading = false;
+          });
+        } else {
+          _showGradientNotification("Error", "Error al obtener los cursos",
+              isError: true);
+        }
+      } else {
+        _showGradientNotification("Error", "Error al obtener las asignaciones",
+            isError: true);
+      }
+    } catch (e) {
+      _showGradientNotification("Error", "Error de conexión", isError: true);
+    } finally {
       setState(() {
-        alumnas = jsonList.map((e) => Alumna.fromJson(e)).toList();
+        isLoading = false;
       });
     }
   }
 
-  Future<void> _guardarAlumnas() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = alumnas.map((a) => a.toJson()).toList();
-    prefs.setString('alumnas_guardadas', jsonEncode(jsonList));
+  String _formatearFecha(String fecha) {
+    final date = DateTime.tryParse(fecha);
+    if (date == null) return fecha;
+
+    final meses = [
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre"
+    ];
+
+    return "${date.day} De ${meses[date.month - 1]}";
   }
 
-  void _registrarAlumna() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final nombre = nombreController.text.trim();
-    final servicio = servicioController.text.trim();
-    final anticipo = double.tryParse(anticipoController.text.trim()) ?? 0;
-    final metodoPago = metodoPagoController.text.trim();
-    final digitos = digitosController.text.trim();
-
-    final alumna = Alumna(
-      nombre: nombre,
-      servicio: servicio,
-      anticipo: anticipo,
-      metodoPago: metodoPago,
-      digitos: digitos,
-    );
-
-    setState(() => alumnas.add(alumna));
-    await _guardarAlumnas();
-
-    Flushbar(
-      margin: const EdgeInsets.all(20),
-      borderRadius: BorderRadius.circular(15),
-      backgroundColor: const Color(0xFFF26AB6),
-      flushbarPosition: FlushbarPosition.TOP,
-      icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
-      titleText: const Text("¡Registrado!", style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold)),
-      messageText: const Text("Alumna registrada correctamente", style: TextStyle(fontSize: 16, color: Colors.white)),
-      duration: const Duration(seconds: 3),
-    ).show(context);
-
-    nombreController.clear();
-    servicioController.clear();
-    anticipoController.clear();
-    metodoPagoController.clear();
-    digitosController.clear();
-
-    // Navega a AccesoAlumnasView y pasa la lista actualizada
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => AccesoAlumnasView()),
+  Widget _buildFloatingActionButton() {
+    final borderRadius = BorderRadius.circular(15);
+    return Material(
+      color: Colors.transparent,
+      elevation: 5,
+      shadowColor: Colors.grey.withOpacity(0.5),
+      shape: RoundedRectangleBorder(borderRadius: borderRadius),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [gradientStart, gradientEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: borderRadius,
+        ),
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: () {
+            _fetchCursosAsignados();
+            _showGradientNotification(
+                "Actualizado", "Lista de cursos actualizada");
+          },
+          child: const SizedBox(
+            width: 64,
+            height: 64,
+            child: Center(
+              child: Icon(Icons.refresh, color: Colors.white, size: 30),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final mainColor = const Color(0xFFF26AB6);
-
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          const SizedBox(height: 30),
-          SizedBox(height: 120, child: Image.asset('assets/images/Logo.png')),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
+      floatingActionButton: _buildFloatingActionButton(),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
               child: Column(
                 children: [
-                  TextFormField(
-                    controller: nombreController,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: servicioController,
-                    decoration: const InputDecoration(labelText: 'Servicio'),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: anticipoController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Anticipo'),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: metodoPagoController,
-                    decoration: const InputDecoration(labelText: 'Método de pago'),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: digitosController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    decoration: const InputDecoration(labelText: '4 Dígitos (si aplica)'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: _registrarAlumna,
-                    icon: const Icon(Icons.check),
-                    label: const Text('Registrar Alumna'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: mainColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                  _buildAnimatedButton(
+                    onTap: () {},
+                    child: Image.asset(
+                      'assets/images/Logo.png',
+                      height: 80,
+                      fit: BoxFit.contain,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Inscripción de Alumnas",
+                    style: TextStyle(
+                      color: gradientStart,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFFF26AB6)),
+                      ),
+                    )
+                  else if (cursosAsignados.isEmpty)
+                    _buildAnimatedButton(
+                      onTap: () {},
+                      child: const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            Icon(Icons.school, size: 60, color: Colors.grey),
+                            SizedBox(height: 10),
+                            Text(
+                              "No tienes cursos asignados.",
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ...cursosAsignados.asMap().entries.map((entry) {
+                      final curso = entry.value;
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RegistrarAlumnasNuevasView(curso: curso),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            surfaceTintColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 20, horizontal: 18),
+                            elevation: 5,
+                            shadowColor: Colors.grey.withOpacity(0.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [gradientStart, gradientEnd],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Container(
+                              padding: EdgeInsets.zero,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.school,
+                                      color: Colors.white, size: 48),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          curso['nombre'] ?? '',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 19,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.location_city,
+                                                size: 14, color: Colors.white),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                curso['ciudad'] ?? '',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.white,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.calendar_today,
+                                                size: 14, color: Colors.white),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                "Inicio: ${_formatearFecha(curso['fecha_inicial'] ?? '')}",
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.white,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.event_available,
+                                                size: 14, color: Colors.white),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                "Fin: ${_formatearFecha(curso['fecha_final'] ?? '')}",
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.white,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward_ios,
+                                      color: Colors.white),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
           ),
-          const Spacer(),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
-              ),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(25),
-                topRight: Radius.circular(25),
-              ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [gradientStart, gradientEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white70,
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pop(context);
+            } else if (index == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MiPerfilView()),
+              );
+            }
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: "Principal",
             ),
-            padding: const EdgeInsets.symmetric(vertical: 13),
-            child: SizedBox(
-              height: 90,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  InkWell(
-                    onTap: () => Navigator.pushReplacement(
-                        context, MaterialPageRoute(builder: (_) => const OptionsView())),
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.home, color: Colors.white, size: 40),
-                        Text('Principal', style: TextStyle(color: Colors.white))
-                      ],
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => Navigator.pushReplacement(
-                        context, MaterialPageRoute(builder: (_) => const AccesoAlumnasView())),
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.person, color: Colors.white, size: 40),
-                        Text('Alumnas', style: TextStyle(color: Colors.white))
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: "Mi Perfil",
             ),
-          )
-        ],
+          ],
+        ),
       ),
     );
   }

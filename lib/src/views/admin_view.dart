@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/agregar_producto_view.dart';
 import 'package:app_beauty/src/views/inventario_admin_view.dart';
 import 'package:app_beauty/src/views/crear_curso_view.dart';
-import 'package:app_beauty/src/views/cursos_view.dart';
+import 'package:app_beauty/src/views/encargados_view.dart';
+import 'package:app_beauty/src/views/mi_perfil_admin.dart';
+import 'package:app_beauty/src/views/asignacion_view.dart';
+import 'package:app_beauty/src/views/asignaciones_view.dart';
 
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -13,28 +19,71 @@ class AdminView extends StatefulWidget {
 
 class _AdminViewState extends State<AdminView> {
   int _currentIndex = 0;
+  // Colores de la app para notificación
+  final Color gradientStart = const Color(0xFFF26AB6);
+  final Color gradientEnd = const Color(0xFFAA57EC);
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarYMostrarNotificacion();
+  }
+
+  Future<void> _verificarYMostrarNotificacion() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Usamos una clave distinta para Admin para que también se muestre al menos una vez en esta vista
+    final yaMostrado = prefs.getBool('notificacion_admin_mostrada') ?? false;
+
+    if (!yaMostrado) {
+      await prefs.setBool('notificacion_admin_mostrada', true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mostrarNotificacionBienvenida(context);
+      });
+    }
+  }
+
+  void _mostrarNotificacionBienvenida(BuildContext context) {
+    Flushbar(
+      margin: const EdgeInsets.all(20),
+      borderRadius: BorderRadius.circular(15),
+      backgroundColor: gradientStart,
+      flushbarPosition: FlushbarPosition.TOP,
+      icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
+      titleText: const Text(
+        "¡Bienvenido!",
+        style: TextStyle(
+            fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+      messageText: const Text(
+        "Inicio de sesión exitoso.",
+        style: TextStyle(fontSize: 16, color: Colors.white),
+      ),
+      duration: const Duration(seconds: 3),
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
+  }
 
   void _onPressed(String section) {
     Widget? destino;
 
     switch (section) {
       case "Inventario":
-         destino = const InventarioView();
+        destino = const InventarioView();
         break;
       case "Creación De Curso":
         destino = const CrearCursoView();
         break;
       case "Administrar Cursos":
-        destino = const CursosView();
+        destino = const AsignacionesView();
         break;
       case "Administrar Encargados":
-        // destino = const AdminEncargadosView();
+        destino = const EncargadosView();
         break;
       case "Agregar Producto":
         destino = const AgregarProductoView();
         break;
-      case "Historiales":
-        // destino = const HistorialesView();
+      case "Asignación":
+        destino = const AsignacionView();
         break;
     }
 
@@ -51,83 +100,46 @@ class _AdminViewState extends State<AdminView> {
     const gradientColors = [Color(0xFFF26AB6), Color(0xFFAA57EC)];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF3F3F3),
 
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Column(
             children: [
-              Image.asset(
-                'assets/images/Logo.png',
-                width: 280,
-                height: 280,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 20),
-
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  _buildWrapButton("Inventario", Icons.inventory),
-                  _buildWrapButton("Creación De Curso", Icons.create),
-                  _buildWrapButton("Administrar Cursos", Icons.menu_book),
-                  _buildWrapButton("Administrar Encargados", Icons.people),
-                  _buildWrapButton("Agregar Producto", Icons.add_box),
-                ],
-              ),
-
-              const SizedBox(height: 50),
-
-              // Botón horizontal "Historiales"
-              SizedBox(
-                width: double.infinity,
-                height: 80,
-                child: InkWell(
-                  onTap: () => _onPressed("Historiales"),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: gradientColors,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 4,
-                          offset: Offset(2, 2),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.history, color: Colors.white, size: 30),
-                        SizedBox(width: 10),
-                        Text(
-                          "Historiales",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ],
-                    ),
+              // Logo
+              Container(
+                padding: const EdgeInsets.only(top: 8, bottom: 6),
+                child: SizedBox(
+                  height: 130,
+                  child: Image.asset(
+                    'assets/images/Logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
+              ),
+
+              const SizedBox(height: 6),
+
+              // Grid de opciones
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _buildMenuButton("Inventario", Icons.inventory),
+                  _buildMenuButton("Creación De Curso", Icons.create),
+                  _buildMenuButton("Administrar Cursos", Icons.menu_book),
+                  _buildMenuButton("Administrar Encargados", Icons.people),
+                  _buildMenuButton("Agregar Producto", Icons.add_box),
+                  _buildMenuButton("Asignación", Icons.assignment_ind),
+                ],
               ),
             ],
           ),
         ),
       ),
 
-      // BottomNavigationBar con degradado
+      // BottomNavigationBar con esquinas redondeadas
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -135,74 +147,95 @@ class _AdminViewState extends State<AdminView> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
         ),
-        child: BottomNavigationBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          currentIndex: _currentIndex,
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white70,
-          onTap: (index) {
-            setState(() => _currentIndex = index);
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: "Principal",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person),
-              label: "Mi Perfil",
-            ),
-          ],
+        child: SizedBox(
+          height: 70,
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            currentIndex: _currentIndex,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.white70,
+            onTap: (index) {
+              setState(() => _currentIndex = index);
+              if (index == 0) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminView()),
+                  (route) => false,
+                );
+              } else if (index == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MiPerfilAdmin()),
+                );
+              }
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: "Principal",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person),
+                label: "Mi Perfil",
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildWrapButton(String label, IconData icon) {
+  Widget _buildMenuButton(String label, IconData icon) {
     return SizedBox(
       width: (MediaQuery.of(context).size.width - 56) / 2,
-      height: 120,
-      child: _buildButton(icon, label, () => _onPressed(label)),
-    );
-  }
-
-  Widget _buildButton(IconData icon, String text, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      child: ElevatedButton(
+        onPressed: () => _onPressed(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
           ),
-          borderRadius: BorderRadius.all(Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 4,
-              offset: Offset(2, 2),
-            ),
-          ],
+          elevation: 5,
+          shadowColor: Colors.grey.withOpacity(0.5),
         ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.white),
-            const SizedBox(height: 10),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 145),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 50, color: Colors.white),
+                const SizedBox(height: 10),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
