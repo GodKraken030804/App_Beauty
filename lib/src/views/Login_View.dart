@@ -74,7 +74,12 @@ class _LoginViewState extends State<LoginView> {
           debugPrint('Token guardado: ${user.token}');
           final decodedToken = JwtDecoder.decode(user.token);
           debugPrint('Payload decodificado: $decodedToken');
-
+          // Depuración: mostrar cada clave y valor del token decodificado
+          if (decodedToken is Map) {
+            decodedToken.forEach((key, value) {
+              debugPrint('Clave: $key, Valor: $value');
+            });
+          }
           final rol = decodedToken['rol'] ?? 'default';
 
           // 👇 Determinar vista de destino según el rol
