@@ -46,6 +46,12 @@ class _VentasViewState extends State<VentasView> {
     'Transferencia': TextEditingController(),
   };
   final TextEditingController _last4Ctrl = TextEditingController();
+  final TextEditingController _last4TransferenciaCtrl = TextEditingController();
+  final TextEditingController _descuentoCtrl = TextEditingController();
+
+  // Tracking de artículos especiales
+  final Set<int> _articulosRegalo = {}; // Índices de items marcados como regalo
+  final Set<int> _articulosPractica = {}; // Índices de items para práctica
 
   @override
   void initState() {
@@ -56,16 +62,32 @@ class _VentasViewState extends State<VentasView> {
   @override
   void dispose() {
     _last4Ctrl.dispose();
+    _last4TransferenciaCtrl.dispose();
+    _descuentoCtrl.dispose();
     for (var ctrl in _montosControllers.values) {
       ctrl.dispose();
     }
     super.dispose();
   }
 
-  double get _total => _carrito.fold(0.0, (a, it) {
-        final v = it['total'];
-        return a + (v is num ? v.toDouble() : double.tryParse('$v') ?? 0.0);
-      });
+  double get _total {
+    double sum = 0.0;
+    for (int i = 0; i < _carrito.length; i++) {
+      // Si el artículo es regalo o práctica, no suma al total
+      if (_articulosRegalo.contains(i) || _articulosPractica.contains(i)) {
+        continue;
+      }
+      final v = _carrito[i]['total'];
+      sum += (v is num ? v.toDouble() : double.tryParse('$v') ?? 0.0);
+    }
+    return sum;
+  }
+
+  double get _totalConDescuento {
+    final descuento = double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0;
+    return _round2((_total - descuento).clamp(0.0, double.infinity));
+  }
+
   double _round2(double v) => double.parse(v.toStringAsFixed(2));
   String _asMoneyStr(num v) => v.toDouble().toStringAsFixed(2);
   int? _asInt(dynamic v) {
@@ -120,35 +142,47 @@ class _VentasViewState extends State<VentasView> {
           double.tryParse(_montosControllers[metodo]!.text.trim()) ?? 0.0;
       if (monto > 0) {
         totalPagos += monto;
-        metodosPagoActivos.add({
+        final pagoData = {
           'metodo': metodo.toLowerCase(),
           'monto': _round2(monto),
-          if (metodo == 'Tarjeta' && _last4Ctrl.text.trim().length == 4)
-            'ultimos4': _last4Ctrl.text.trim(),
-        });
+        };
+
+        if (metodo == 'Tarjeta' && _last4Ctrl.text.trim().length == 4) {
+          pagoData['ultimos4'] = _last4Ctrl.text.trim();
+        }
+
+        if (metodo == 'Transferencia' &&
+            _last4TransferenciaCtrl.text.trim().length == 4) {
+          pagoData['ultimos4'] = _last4TransferenciaCtrl.text.trim();
+        }
+
+        metodosPagoActivos.add(pagoData);
       }
     }
 
     // Validar que el total de pagos coincida con el total de la venta
-    if ((totalPagos - _total).abs() > 0.01) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.orange.shade400,
-          content: Text(
-              'El total de pagos (\$${totalPagos.toStringAsFixed(2)}) no coincide con el total de la venta (\$${_total.toStringAsFixed(2)})',
-              style: GoogleFonts.poppins()),
-        ),
-      );
-      return;
-    }
+    // Si el total es 0 (todos los artículos son regalo/práctica), no se requieren métodos de pago
+    if (_totalConDescuento > 0.01) {
+      if ((totalPagos - _totalConDescuento).abs() > 0.01) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.orange.shade400,
+            content: Text(
+                'El total de pagos (\$${totalPagos.toStringAsFixed(2)}) no coincide con el total de la venta (\$${_totalConDescuento.toStringAsFixed(2)})',
+                style: GoogleFonts.poppins()),
+          ),
+        );
+        return;
+      }
 
-    if (metodosPagoActivos.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Debes ingresar al menos un método de pago',
-                style: GoogleFonts.poppins())),
-      );
-      return;
+      if (metodosPagoActivos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Debes ingresar al menos un método de pago',
+                  style: GoogleFonts.poppins())),
+        );
+        return;
+      }
     }
 
     setState(() => _loading = true);
@@ -159,7 +193,9 @@ class _VentasViewState extends State<VentasView> {
           token != null ? _asInt(JwtDecoder.decode(token)['id']) : null;
 
       // Armar productos con nombre, cantidad y precio unitario
-      final productos = _carrito.map((it) {
+      final productos = [];
+      for (int i = 0; i < _carrito.length; i++) {
+        final it = _carrito[i];
         final idProd =
             _asInt(it['id_producto'] ?? it['idproduc'] ?? it['producto_id']);
         final nombre = idProd != null
@@ -171,18 +207,39 @@ class _VentasViewState extends State<VentasView> {
         final total = (it['total'] is num)
             ? (it['total'] as num).toDouble()
             : double.tryParse('${it['total']}') ?? 0.0;
-        final precio = cantidad > 0 ? total / cantidad : 0.0;
-        return {
+
+        // Si es regalo o práctica, el precio es 0
+        final esRegalo = _articulosRegalo.contains(i);
+        final esPractica = _articulosPractica.contains(i);
+        final precio = (esRegalo || esPractica)
+            ? 0.0
+            : (cantidad > 0 ? total / cantidad : 0.0);
+
+        final productoData = {
           if (idProd != null) 'id_producto': idProd,
           'nombre': nombre,
           'cantidad': cantidad,
           'precio': _round2(precio),
         };
-      }).toList();
+
+        // Agregar indicadores especiales
+        if (esRegalo) {
+          productoData['es_regalo'] = true;
+        }
+        if (esPractica) {
+          productoData['es_practica'] = true;
+        }
+
+        productos.add(productoData);
+      }
+
+      final descuento = double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0;
 
       final body = jsonEncode({
         'id_encargado': userId,
-        'total_final': _asMoneyStr(_total),
+        'total_final': _asMoneyStr(_totalConDescuento),
+        'subtotal': _asMoneyStr(_total),
+        if (descuento > 0) 'descuento': _asMoneyStr(descuento),
         'productos': productos,
         'metodos_pago': metodosPagoActivos,
       });
@@ -234,17 +291,24 @@ class _VentasViewState extends State<VentasView> {
                       final metodo = mp['metodo'] ?? '';
                       final monto = mp['monto'] ?? 0.0;
                       final last4 = mp['ultimos4'] ?? '';
+                      String metodoTexto;
+
+                      if (metodo == 'tarjeta' && last4.isNotEmpty) {
+                        metodoTexto = 'Tarjeta **** $last4';
+                      } else if (metodo == 'transferencia' &&
+                          last4.isNotEmpty) {
+                        metodoTexto = 'Transferencia **** $last4';
+                      } else {
+                        metodoTexto =
+                            '${metodo[0].toUpperCase()}${metodo.substring(1)}';
+                      }
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              metodo == 'tarjeta' && last4.isNotEmpty
-                                  ? 'Tarjeta **** $last4'
-                                  : '${metodo[0].toUpperCase()}${metodo.substring(1)}',
-                              style: GoogleFonts.poppins(),
-                            ),
+                            Text(metodoTexto, style: GoogleFonts.poppins()),
                             Text('\$${monto.toStringAsFixed(2)}',
                                 style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.w600)),
@@ -257,30 +321,78 @@ class _VentasViewState extends State<VentasView> {
                     Text('Productos:',
                         style:
                             GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                    ...productos.map((p) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                  child: Text(
-                                      '${p['nombre']} x${p['cantidad']}',
-                                      style: GoogleFonts.poppins())),
-                              Text(
-                                  '\$${(p['precio'] as double).toStringAsFixed(2)}',
-                                  style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        )),
+                    ...productos.asMap().entries.map((entry) {
+                      final p = entry.value;
+                      final idx = entry.key;
+                      final esRegalo = _articulosRegalo.contains(idx);
+                      final esPractica = _articulosPractica.contains(idx);
+
+                      String extras = '';
+                      if (esRegalo) extras += ' 🎁';
+                      if (esPractica) extras += ' 📚';
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                                child: Text(
+                                    '${p['nombre']} x${p['cantidad']}$extras',
+                                    style: GoogleFonts.poppins())),
+                            Text(
+                                '\$${(p['precio'] as double).toStringAsFixed(2)}',
+                                style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      );
+                    }),
                     const Divider(),
+                    if (descuento > 0) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Subtotal', style: GoogleFonts.poppins()),
+                          Text('\$${_round2(_total).toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins()),
+                        ],
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Descuento',
+                              style: GoogleFonts.poppins(color: Colors.green)),
+                          Text('-\$${descuento.toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    // Mostrar nota si hay artículos gratis
+                    if (_articulosRegalo.isNotEmpty ||
+                        _articulosPractica.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '* Artículos marcados como 🎁 Regalo o 📚 Práctica no tienen costo',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total',
                             style: GoogleFonts.poppins(
                                 fontWeight: FontWeight.w700)),
-                        Text('\$${_round2(_total).toStringAsFixed(2)}',
+                        Text(
+                            '\$${_round2(_totalConDescuento).toStringAsFixed(2)}',
                             style: GoogleFonts.poppins(
                                 fontWeight: FontWeight.w800)),
                       ],
@@ -313,9 +425,14 @@ class _VentasViewState extends State<VentasView> {
           _loading = false;
           // Limpiar todos los campos de pago
           _last4Ctrl.clear();
+          _last4TransferenciaCtrl.clear();
+          _descuentoCtrl.clear();
           for (var ctrl in _montosControllers.values) {
             ctrl.clear();
           }
+          // Limpiar marcadores de artículos especiales
+          _articulosRegalo.clear();
+          _articulosPractica.clear();
         });
 
         _showTopBar(
@@ -1208,6 +1325,17 @@ class _VentasViewState extends State<VentasView> {
                                           0.0;
                                   final precioU =
                                       cantidad > 0 ? total / cantidad : 0.0;
+                                  final esRegalo =
+                                      _articulosRegalo.contains(index);
+                                  final esPractica =
+                                      _articulosPractica.contains(index);
+
+                                  // Si es regalo o práctica, mostrar precio $0
+                                  final precioMostrar =
+                                      (esRegalo || esPractica) ? 0.0 : precioU;
+                                  final totalMostrar =
+                                      (esRegalo || esPractica) ? 0.0 : total;
+
                                   return Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(14),
@@ -1218,24 +1346,156 @@ class _VentasViewState extends State<VentasView> {
                                         ],
                                       ),
                                     ),
-                                    child: ListTile(
-                                      title: Text(
-                                        nombreProd,
-                                        style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600),
-                                      ),
-                                      subtitle: Text(
-                                        '$cantidad x \$${precioU.toStringAsFixed(2)}',
-                                        style: GoogleFonts.poppins(
-                                            color: Colors.grey.shade700),
-                                      ),
-                                      trailing: Text(
-                                        '\$${total.toStringAsFixed(2)}',
-                                        style: GoogleFonts.poppins(
-                                          fontWeight: FontWeight.w700,
-                                          color: gradientEnd,
+                                    child: Column(
+                                      children: [
+                                        ListTile(
+                                          title: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  nombreProd,
+                                                  style: GoogleFonts.poppins(
+                                                      fontWeight:
+                                                          FontWeight.w600),
+                                                ),
+                                              ),
+                                              if (esRegalo)
+                                                const Padding(
+                                                  padding:
+                                                      EdgeInsets.only(left: 4),
+                                                  child: Text('🎁',
+                                                      style: TextStyle(
+                                                          fontSize: 16)),
+                                                ),
+                                              if (esPractica)
+                                                const Padding(
+                                                  padding:
+                                                      EdgeInsets.only(left: 4),
+                                                  child: Text('📚',
+                                                      style: TextStyle(
+                                                          fontSize: 16)),
+                                                ),
+                                            ],
+                                          ),
+                                          subtitle: Text(
+                                            '$cantidad x \$${precioMostrar.toStringAsFixed(2)}',
+                                            style: GoogleFonts.poppins(
+                                                color: Colors.grey.shade700),
+                                          ),
+                                          trailing: Text(
+                                            '\$${totalMostrar.toStringAsFixed(2)}',
+                                            style: GoogleFonts.poppins(
+                                              fontWeight: FontWeight.w700,
+                                              color: gradientEnd,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              16, 0, 16, 8),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            children: [
+                                              InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    if (esRegalo) {
+                                                      _articulosRegalo
+                                                          .remove(index);
+                                                    } else {
+                                                      _articulosRegalo
+                                                          .add(index);
+                                                    }
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: esRegalo
+                                                        ? Colors.pink.shade100
+                                                        : Colors.grey.shade200,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      const Text('🎁',
+                                                          style: TextStyle(
+                                                              fontSize: 14)),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Regalo',
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                          fontSize: 11,
+                                                          fontWeight: esRegalo
+                                                              ? FontWeight.w600
+                                                              : FontWeight.w400,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    if (esPractica) {
+                                                      _articulosPractica
+                                                          .remove(index);
+                                                    } else {
+                                                      _articulosPractica
+                                                          .add(index);
+                                                    }
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: esPractica
+                                                        ? Colors.blue.shade100
+                                                        : Colors.grey.shade200,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      const Text('📚',
+                                                          style: TextStyle(
+                                                              fontSize: 14)),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Práctica',
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                          fontSize: 11,
+                                                          fontWeight: esPractica
+                                                              ? FontWeight.w600
+                                                              : FontWeight.w400,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },
@@ -1244,129 +1504,286 @@ class _VentasViewState extends State<VentasView> {
             ),
 
             // Total y acciones
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-              decoration: const BoxDecoration(color: Color(0xFFF3F3F3)),
-              child: Column(
-                children: [
-                  // Métodos de pago múltiples
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.shade300,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Métodos de Pago',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: gradientStart,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Efectivo
-                        Row(
-                          children: [
-                            const Icon(Icons.attach_money, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text('Efectivo',
-                                  style: GoogleFonts.poppins(fontSize: 14)),
-                            ),
-                            SizedBox(
-                              width: 120,
-                              child: TextField(
-                                controller: _montosControllers['Efectivo'],
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                                decoration: InputDecoration(
-                                  prefixText: '\$',
-                                  hintText: '0.00',
-                                  hintStyle: GoogleFonts.poppins(
-                                      color: Colors.grey.shade400),
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 8),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  decoration: const BoxDecoration(color: Color(0xFFF3F3F3)),
+                  child: Column(
+                    children: [
+                      // Métodos de pago múltiples
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade300,
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        // Tarjeta
-                        Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.credit_card, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Tarjeta',
+                            Text(
+                              'Métodos de Pago',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: gradientStart,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            // Efectivo
+                            Row(
+                              children: [
+                                const Icon(Icons.attach_money, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('Efectivo',
                                       style: GoogleFonts.poppins(fontSize: 14)),
-                                  if ((double.tryParse(
-                                              _montosControllers['Tarjeta']!
-                                                  .text
-                                                  .trim()) ??
-                                          0.0) >
-                                      0)
-                                    SizedBox(
-                                      width: 100,
-                                      child: TextField(
-                                        controller: _last4Ctrl,
-                                        maxLength: 4,
-                                        keyboardType: TextInputType.number,
-                                        style:
-                                            GoogleFonts.poppins(fontSize: 12),
-                                        decoration: InputDecoration(
-                                          counterText: '',
-                                          hintText: 'Últimos 4',
-                                          hintStyle: GoogleFonts.poppins(
-                                              fontSize: 11,
-                                              color: Colors.grey.shade400),
-                                          isDense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                  horizontal: 6, vertical: 4),
-                                          border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                        ),
-                                        onChanged: (v) {
-                                          if (v.length > 4) {
-                                            _last4Ctrl.text = v.substring(0, 4);
-                                            _last4Ctrl.selection =
-                                                TextSelection.fromPosition(
-                                                    const TextPosition(
-                                                        offset: 4));
-                                          }
-                                        },
+                                ),
+                                SizedBox(
+                                  width: 120,
+                                  child: TextField(
+                                    controller: _montosControllers['Efectivo'],
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    decoration: InputDecoration(
+                                      prefixText: '\$',
+                                      hintText: '0.00',
+                                      hintStyle: GoogleFonts.poppins(
+                                          color: Colors.grey.shade400),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 8),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                ],
-                              ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Tarjeta
+                            Row(
+                              children: [
+                                const Icon(Icons.credit_card, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Tarjeta',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 14)),
+                                      if ((double.tryParse(
+                                                  _montosControllers['Tarjeta']!
+                                                      .text
+                                                      .trim()) ??
+                                              0.0) >
+                                          0)
+                                        SizedBox(
+                                          width: 100,
+                                          child: TextField(
+                                            controller: _last4Ctrl,
+                                            maxLength: 4,
+                                            keyboardType: TextInputType.number,
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 12),
+                                            decoration: InputDecoration(
+                                              counterText: '',
+                                              hintText: 'Últimos 4',
+                                              hintStyle: GoogleFonts.poppins(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade400),
+                                              isDense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 4),
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                            ),
+                                            onChanged: (v) {
+                                              if (v.length > 4) {
+                                                _last4Ctrl.text =
+                                                    v.substring(0, 4);
+                                                _last4Ctrl.selection =
+                                                    TextSelection.fromPosition(
+                                                        const TextPosition(
+                                                            offset: 4));
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 120,
+                                  child: TextField(
+                                    controller: _montosControllers['Tarjeta'],
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    decoration: InputDecoration(
+                                      prefixText: '\$',
+                                      hintText: '0.00',
+                                      hintStyle: GoogleFonts.poppins(
+                                          color: Colors.grey.shade400),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 8),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onChanged: (v) {
+                                      setState(
+                                          () {}); // Actualizar UI para mostrar campo de últimos 4
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Transferencia
+                            Row(
+                              children: [
+                                const Icon(Icons.swap_horiz, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Transferencia',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 14)),
+                                      if ((double.tryParse(_montosControllers[
+                                                      'Transferencia']!
+                                                  .text
+                                                  .trim()) ??
+                                              0.0) >
+                                          0)
+                                        SizedBox(
+                                          width: 100,
+                                          child: TextField(
+                                            controller: _last4TransferenciaCtrl,
+                                            maxLength: 4,
+                                            keyboardType: TextInputType.number,
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 12),
+                                            decoration: InputDecoration(
+                                              counterText: '',
+                                              hintText: 'Últimos 4',
+                                              hintStyle: GoogleFonts.poppins(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade400),
+                                              isDense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 4),
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                            ),
+                                            onChanged: (v) {
+                                              if (v.length > 4) {
+                                                _last4TransferenciaCtrl.text =
+                                                    v.substring(0, 4);
+                                                _last4TransferenciaCtrl
+                                                        .selection =
+                                                    TextSelection.fromPosition(
+                                                        const TextPosition(
+                                                            offset: 4));
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 120,
+                                  child: TextField(
+                                    controller:
+                                        _montosControllers['Transferencia'],
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    decoration: InputDecoration(
+                                      prefixText: '\$',
+                                      hintText: '0.00',
+                                      hintStyle: GoogleFonts.poppins(
+                                          color: Colors.grey.shade400),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 8),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onChanged: (v) {
+                                      setState(
+                                          () {}); // Actualizar UI para mostrar campo de últimos 4
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Campo de descuento
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade300,
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_offer,
+                                size: 20, color: Colors.green),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Descuento',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green.shade700,
+                                  )),
                             ),
                             SizedBox(
                               width: 120,
                               child: TextField(
-                                controller: _montosControllers['Tarjeta'],
+                                controller: _descuentoCtrl,
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                         decimal: true),
@@ -1384,123 +1801,162 @@ class _VentasViewState extends State<VentasView> {
                                   ),
                                 ),
                                 onChanged: (v) {
-                                  setState(
-                                      () {}); // Actualizar UI para mostrar campo de últimos 4
+                                  setState(() {}); // Actualizar total
                                 },
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        // Transferencia
-                        Row(
-                          children: [
-                            const Icon(Icons.swap_horiz, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text('Transferencia',
-                                  style: GoogleFonts.poppins(fontSize: 14)),
+                      ),
+                      const SizedBox(height: 6),
+                      Column(
+                        children: [
+                          if ((double.tryParse(_descuentoCtrl.text.trim()) ??
+                                  0.0) >
+                              0) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Subtotal',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    )),
+                                Text('\$${_total.toStringAsFixed(2)}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    )),
+                              ],
                             ),
-                            SizedBox(
-                              width: 120,
-                              child: TextField(
-                                controller: _montosControllers['Transferencia'],
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                                decoration: InputDecoration(
-                                  prefixText: '\$',
-                                  hintText: '0.00',
-                                  hintStyle: GoogleFonts.poppins(
-                                      color: Colors.grey.shade400),
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 8),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Descuento',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.green.shade600,
+                                    )),
+                                Text(
+                                    '-\$${(double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0).toStringAsFixed(2)}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.green.shade600,
+                                      fontWeight: FontWeight.w600,
+                                    )),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Total',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: gradientStart,
+                                  )),
+                              Text('\$${_totalConDescuento.toStringAsFixed(2)}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: gradientEnd,
+                                  )),
+                            ],
+                          ),
+                        ],
+                      ),
+                      // Mensaje informativo sobre artículos gratis
+                      if (_articulosRegalo.isNotEmpty ||
+                          _articulosPractica.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline,
+                                  size: 16, color: Colors.blue.shade700),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Artículos marcados como Regalo 🎁 o Práctica 📚 no tienen costo',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: Colors.blue.shade700,
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Total',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: gradientStart,
-                          )),
-                      Text('\$${_total.toStringAsFixed(2)}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: gradientEnd,
-                          )),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _loading ? null : _loadAll,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(color: gradientStart),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text('Actualizar',
-                              style: GoogleFonts.poppins(
-                                color: gradientStart,
-                                fontWeight: FontWeight.w700,
-                              )),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _loading || _carrito.isEmpty
-                              ? null
-                              : _finalizarVenta,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: gradientEnd,
-                            disabledBackgroundColor: Colors.grey,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            elevation: 5,
-                            shadowColor: Colors.grey.withOpacity(0.4),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Container(
-                              alignment: Alignment.center,
-                              child: Text('Finalizar Venta',
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _loading ? null : _loadAll,
+                              style: OutlinedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(color: gradientStart),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text('Actualizar',
                                   style: GoogleFonts.poppins(
+                                    color: gradientStart,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
                                   )),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _loading || _carrito.isEmpty
+                                  ? null
+                                  : _finalizarVenta,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: gradientEnd,
+                                disabledBackgroundColor: Colors.grey,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                elevation: 5,
+                                shadowColor: Colors.grey.withOpacity(0.4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  child: Text('Finalizar Venta',
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      )),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ],
