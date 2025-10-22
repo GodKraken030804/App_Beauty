@@ -79,7 +79,7 @@ class _AsignacionViewState extends State<AsignacionView> {
       final data = jsonDecode(response.body);
       print(' Datos recibidos: ${data.length} registros');
       final encargadosFiltrados =
-          data.where((u) => (u['rol']?.toLowerCase() == 'encargado')).toList();
+          data.where((u) => (u['usuario']?.toLowerCase() == 'encargado')).toList();
       print(' Encargados encontrados: ${encargadosFiltrados.length}');
       return encargadosFiltrados;
     }
@@ -405,6 +405,28 @@ class _AsignacionViewState extends State<AsignacionView> {
                                   icon: const Icon(Icons.expand_more,
                                       color: Color(0xFFF26AB6)),
                                   isExpanded: true,
+                                  selectedItemBuilder: (BuildContext context) {
+                                    // Muestra solo el nombre cuando está seleccionado
+                                    return encargados.map<Widget>((user) {
+                                      return Row(
+                                        children: [
+                                          const Icon(Icons.person,
+                                              color: Color(0xFFF26AB6),
+                                              size: 20),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              user['nombre'] ?? 'Sin nombre',
+                                              style: GoogleFonts.poppins(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }).toList();
+                                  },
                                   items: encargados
                                       .map<DropdownMenuItem<String>>((user) {
                                     return DropdownMenuItem<String>(

@@ -26,7 +26,7 @@ class _EncargadosViewState extends State<EncargadosView> {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return (data as List)
-          .where((u) => (u['rol']?.toLowerCase() == 'encargado'))
+          .where((u) => (u['usuario']?.toLowerCase() == 'encargado'))
           .map<String>((u) => (u['nombre']?.toString() ?? ''))
           .where((nombre) => nombre.isNotEmpty)
           .toList();

@@ -8,7 +8,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:flutter/foundation.dart';
-import 'package:excel/excel.dart';
 import 'dart:typed_data';
 import 'package:universal_html/html.dart' as html;
 import 'package:share_plus/share_plus.dart';
@@ -35,8 +34,17 @@ class _VentasViewState extends State<VentasView> {
   final List<dynamic> _historial = [];
   bool _loadingHistorial = false;
 
-  // Pago
-  String _metodoPago = 'Efectivo';
+  // Pago - múltiples métodos
+  final Map<String, double> _metodosPago = {
+    'Efectivo': 0.0,
+    'Tarjeta': 0.0,
+    'Transferencia': 0.0,
+  };
+  final Map<String, TextEditingController> _montosControllers = {
+    'Efectivo': TextEditingController(),
+    'Tarjeta': TextEditingController(),
+    'Transferencia': TextEditingController(),
+  };
   final TextEditingController _last4Ctrl = TextEditingController();
 
   @override
@@ -48,6 +56,9 @@ class _VentasViewState extends State<VentasView> {
   @override
   void dispose() {
     _last4Ctrl.dispose();
+    for (var ctrl in _montosControllers.values) {
+      ctrl.dispose();
+    }
     super.dispose();
   }
 
@@ -100,6 +111,46 @@ class _VentasViewState extends State<VentasView> {
       return;
     }
 
+    // Calcular total de métodos de pago
+    double totalPagos = 0.0;
+    final metodosPagoActivos = <Map<String, dynamic>>[];
+
+    for (var metodo in _metodosPago.keys) {
+      final monto =
+          double.tryParse(_montosControllers[metodo]!.text.trim()) ?? 0.0;
+      if (monto > 0) {
+        totalPagos += monto;
+        metodosPagoActivos.add({
+          'metodo': metodo.toLowerCase(),
+          'monto': _round2(monto),
+          if (metodo == 'Tarjeta' && _last4Ctrl.text.trim().length == 4)
+            'ultimos4': _last4Ctrl.text.trim(),
+        });
+      }
+    }
+
+    // Validar que el total de pagos coincida con el total de la venta
+    if ((totalPagos - _total).abs() > 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.orange.shade400,
+          content: Text(
+              'El total de pagos (\$${totalPagos.toStringAsFixed(2)}) no coincide con el total de la venta (\$${_total.toStringAsFixed(2)})',
+              style: GoogleFonts.poppins()),
+        ),
+      );
+      return;
+    }
+
+    if (metodosPagoActivos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Debes ingresar al menos un método de pago',
+                style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -129,17 +180,11 @@ class _VentasViewState extends State<VentasView> {
         };
       }).toList();
 
-      final last4 = _last4Ctrl.text.trim();
       final body = jsonEncode({
         'id_encargado': userId,
-        // API espera string con 2 decimales (según captura)
         'total_final': _asMoneyStr(_total),
         'productos': productos,
-        'metodo_pago': _metodoPago.toLowerCase(),
-        if (_metodoPago.toLowerCase() == 'tarjeta' && last4.length == 4)
-          'ultimos4': last4,
-        if (_metodoPago.toLowerCase() == 'tarjeta' && last4.length == 4)
-          'tarjeta_ultimos4': last4,
+        'metodos_pago': metodosPagoActivos,
       });
 
       // Usar directamente el endpoint que sí responde OK (API_EMPRESA)
@@ -181,26 +226,37 @@ class _VentasViewState extends State<VentasView> {
                           style: GoogleFonts.poppins()),
                     Text('Encargado: ${userId ?? '-'}',
                         style: GoogleFonts.poppins()),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Método de pago:', style: GoogleFonts.poppins()),
-                        Text(_metodoPago, style: GoogleFonts.poppins()),
-                      ],
-                    ),
-                    if (_metodoPago.toLowerCase() == 'tarjeta' &&
-                        _last4Ctrl.text.trim().isNotEmpty)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Tarjeta:', style: GoogleFonts.poppins()),
-                          Text('**** ${_last4Ctrl.text.trim()}',
-                              style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
                     const SizedBox(height: 8),
+                    Text('Métodos de pago:',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    ...metodosPagoActivos.map((mp) {
+                      final metodo = mp['metodo'] ?? '';
+                      final monto = mp['monto'] ?? 0.0;
+                      final last4 = mp['ultimos4'] ?? '';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              metodo == 'tarjeta' && last4.isNotEmpty
+                                  ? 'Tarjeta **** $last4'
+                                  : '${metodo[0].toUpperCase()}${metodo.substring(1)}',
+                              style: GoogleFonts.poppins(),
+                            ),
+                            Text('\$${monto.toStringAsFixed(2)}',
+                                style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    const Divider(),
+                    Text('Productos:',
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w600)),
                     ...productos.map((p) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2.0),
                           child: Row(
@@ -251,12 +307,15 @@ class _VentasViewState extends State<VentasView> {
           debugPrint('No se pudo vaciar carrito backend: $e');
         }
 
-        // Opcional: limpiar carrito local después de vender
+        // Limpiar carrito local y métodos de pago después de vender
         setState(() {
           _carrito.clear();
           _loading = false;
-          // Siempre limpiar los últimos 4 al finalizar una venta
+          // Limpiar todos los campos de pago
           _last4Ctrl.clear();
+          for (var ctrl in _montosControllers.values) {
+            ctrl.clear();
+          }
         });
 
         _showTopBar(
@@ -415,192 +474,264 @@ class _VentasViewState extends State<VentasView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Historial de Ventas',
-                        style: GoogleFonts.poppins(
-                            fontSize: 18, fontWeight: FontWeight.w700)),
-                    IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (_loadingHistorial)
-                  const Center(
-                      child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator()))
-                else if (_historial.isEmpty)
-                  Center(
-                      child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text('Sin ventas aún',
-                              style: GoogleFonts.poppins())))
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _historial.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) {
-                        final v = _historial[i] as Map<String, dynamic>;
-                        final folio = v['id'] ?? v['folio'] ?? '-';
-                        final total =
-                            (v['total_final'] ?? v['total'])?.toString() ??
-                                '0.00';
-                        final productos = (v['productos'] is List)
-                            ? (v['productos'] as List)
-                            : const [];
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [
-                              BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 6,
-                                  offset: Offset(0, 3))
-                            ],
-                          ),
-                          child: ExpansionTile(
-                            title: Text('Folio $folio',
-                                style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w600)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Total: \$$total',
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Historial de Ventas',
+                            style: GoogleFonts.poppins(
+                                fontSize: 18, fontWeight: FontWeight.w700)),
+                        IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_loadingHistorial)
+                      const Center(
+                          child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: CircularProgressIndicator()))
+                    else if (_historial.isEmpty)
+                      Center(
+                          child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text('Sin ventas aún',
+                                  style: GoogleFonts.poppins())))
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: _historial.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (_, i) {
+                            final v = _historial[i] as Map<String, dynamic>;
+                            final folio = v['id'] ?? v['folio'] ?? '-';
+                            final total =
+                                (v['total_final'] ?? v['total'])?.toString() ??
+                                    '0.00';
+                            final productos = (v['productos'] is List)
+                                ? (v['productos'] as List)
+                                : const [];
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: const [
+                                  BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 6,
+                                      offset: Offset(0, 3))
+                                ],
+                              ),
+                              child: ExpansionTile(
+                                title: Text('Folio $folio',
                                     style: GoogleFonts.poppins(
-                                        color: Colors.grey.shade700)),
-                                Builder(builder: (_) {
-                                  final metodo =
-                                      (v['metodo_pago'] ?? v['metodo'] ?? '')
-                                          .toString();
-                                  final last4 = (v['ultimos4'] ??
-                                          v['tarjeta_ultimos4'] ??
-                                          v['last4'] ??
-                                          '')
-                                      .toString();
-                                  if (metodo.isEmpty && last4.isEmpty) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return Text(
-                                    metodo.toLowerCase() == 'tarjeta' &&
-                                            last4.isNotEmpty
-                                        ? 'Pago: Tarjeta **** $last4'
-                                        : 'Pago: ${metodo.isEmpty ? 'N/D' : metodo}',
-                                    style: GoogleFonts.poppins(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 12),
-                                  );
-                                }),
-                              ],
-                            ),
-                            children: [
-                              ...productos.map((p) {
-                                final nombre = (p['nombre'] ?? '').toString();
-                                final precio = (p['precio'] ?? '').toString();
-                                final cantidad = p['cantidad'] ?? 0;
-                                return ListTile(
-                                  dense: true,
-                                  title: Text(nombre,
-                                      style: GoogleFonts.poppins()),
-                                  trailing: Text('${cantidad} x \$$precio',
-                                      style: GoogleFonts.poppins(
-                                          fontWeight: FontWeight.w600)),
-                                );
-                              }),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
+                                        fontWeight: FontWeight.w600)),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    TextButton.icon(
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: Colors.red.shade600,
-                                      ),
-                                      onPressed:
-                                          _asInt(v['id'] ?? v['folio']) == null
-                                              ? null
-                                              : () async {
-                                                  final idVenta = _asInt(
-                                                      v['id'] ?? v['folio']);
-                                                  if (idVenta == null) return;
-                                                  final ok =
-                                                      await showDialog<bool>(
-                                                            context: context,
-                                                            builder: (dctx) =>
-                                                                AlertDialog(
-                                                              title: Text(
-                                                                  'Eliminar venta',
-                                                                  style: GoogleFonts.poppins(
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w700)),
-                                                              content: Text(
-                                                                  '¿Seguro que deseas eliminar la venta #$idVenta? Esta acción no se puede deshacer.',
-                                                                  style: GoogleFonts
-                                                                      .poppins()),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed: () =>
-                                                                      Navigator.pop(
-                                                                          dctx,
-                                                                          false),
-                                                                  child: Text(
-                                                                      'Cancelar',
-                                                                      style: GoogleFonts
-                                                                          .poppins()),
-                                                                ),
-                                                                TextButton(
-                                                                  onPressed: () =>
-                                                                      Navigator.pop(
-                                                                          dctx,
-                                                                          true),
-                                                                  child: Text(
-                                                                      'Eliminar',
-                                                                      style: GoogleFonts.poppins(
-                                                                          color:
-                                                                              Colors.red)),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ) ??
-                                                          false;
-                                                  if (!ok) return;
-                                                  await _eliminarVentaPorId(
-                                                      idVenta);
-                                                },
-                                      icon: const Icon(Icons.delete_outline),
-                                      label: Text('Eliminar',
-                                          style: GoogleFonts.poppins()),
-                                    ),
+                                    Text('Total: \$$total',
+                                        style: GoogleFonts.poppins(
+                                            color: Colors.grey.shade700)),
+                                    Builder(builder: (_) {
+                                      // Verificar si tiene métodos de pago múltiples
+                                      if (v['metodos_pago'] != null &&
+                                          v['metodos_pago'] is List) {
+                                        final metodosList =
+                                            v['metodos_pago'] as List;
+                                        if (metodosList.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Pagos:',
+                                                style: GoogleFonts.poppins(
+                                                    color: Colors.grey.shade700,
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                            ...metodosList.map((mp) {
+                                              if (mp is Map) {
+                                                final metodo =
+                                                    (mp['metodo'] ?? '')
+                                                        .toString();
+                                                final monto =
+                                                    (mp['monto'] ?? '')
+                                                        .toString();
+                                                final last4 =
+                                                    (mp['ultimos4'] ?? '')
+                                                        .toString();
+
+                                                final metodoTexto = metodo
+                                                        .isEmpty
+                                                    ? 'N/D'
+                                                    : metodo[0].toUpperCase() +
+                                                        metodo.substring(1);
+
+                                                final pagoTexto = metodo
+                                                                .toLowerCase() ==
+                                                            'tarjeta' &&
+                                                        last4.isNotEmpty
+                                                    ? '$metodoTexto **** $last4: \$$monto'
+                                                    : '$metodoTexto: \$$monto';
+
+                                                return Text(
+                                                  pagoTexto,
+                                                  style: GoogleFonts.poppins(
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                      fontSize: 11),
+                                                );
+                                              }
+                                              return const SizedBox.shrink();
+                                            }),
+                                          ],
+                                        );
+                                      }
+
+                                      // Fallback: método de pago único (compatibilidad)
+                                      final metodo = (v['metodo_pago'] ??
+                                              v['metodo'] ??
+                                              '')
+                                          .toString();
+                                      final last4 = (v['ultimos4'] ??
+                                              v['tarjeta_ultimos4'] ??
+                                              v['last4'] ??
+                                              '')
+                                          .toString();
+                                      if (metodo.isEmpty && last4.isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Text(
+                                        metodo.toLowerCase() == 'tarjeta' &&
+                                                last4.isNotEmpty
+                                            ? 'Pago: Tarjeta **** $last4'
+                                            : 'Pago: ${metodo.isEmpty ? 'N/D' : metodo}',
+                                        style: GoogleFonts.poppins(
+                                            color: Colors.grey.shade700,
+                                            fontSize: 12),
+                                      );
+                                    }),
                                   ],
                                 ),
+                                children: [
+                                  ...productos.map((p) {
+                                    final nombre =
+                                        (p['nombre'] ?? '').toString();
+                                    final precio =
+                                        (p['precio'] ?? '').toString();
+                                    final cantidad = p['cantidad'] ?? 0;
+                                    return ListTile(
+                                      dense: true,
+                                      title: Text(nombre,
+                                          style: GoogleFonts.poppins()),
+                                      trailing: Text('${cantidad} x \$$precio',
+                                          style: GoogleFonts.poppins(
+                                              fontWeight: FontWeight.w600)),
+                                    );
+                                  }),
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        12, 0, 12, 12),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        TextButton.icon(
+                                          style: TextButton.styleFrom(
+                                            foregroundColor:
+                                                Colors.red.shade600,
+                                          ),
+                                          onPressed:
+                                              _asInt(v['id'] ?? v['folio']) ==
+                                                      null
+                                                  ? null
+                                                  : () async {
+                                                      final idVenta = _asInt(
+                                                          v['id'] ??
+                                                              v['folio']);
+                                                      if (idVenta == null)
+                                                        return;
+                                                      final ok =
+                                                          await showDialog<
+                                                                  bool>(
+                                                                context:
+                                                                    context,
+                                                                builder: (dctx) =>
+                                                                    AlertDialog(
+                                                                  title: Text(
+                                                                      'Eliminar venta',
+                                                                      style: GoogleFonts.poppins(
+                                                                          fontWeight:
+                                                                              FontWeight.w700)),
+                                                                  content: Text(
+                                                                      '¿Seguro que deseas eliminar la venta #$idVenta? Esta acción no se puede deshacer.',
+                                                                      style: GoogleFonts
+                                                                          .poppins()),
+                                                                  actions: [
+                                                                    TextButton(
+                                                                      onPressed: () => Navigator.pop(
+                                                                          dctx,
+                                                                          false),
+                                                                      child: Text(
+                                                                          'Cancelar',
+                                                                          style:
+                                                                              GoogleFonts.poppins()),
+                                                                    ),
+                                                                    TextButton(
+                                                                      onPressed: () => Navigator.pop(
+                                                                          dctx,
+                                                                          true),
+                                                                      child: Text(
+                                                                          'Eliminar',
+                                                                          style:
+                                                                              GoogleFonts.poppins(color: Colors.red)),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ) ??
+                                                              false;
+                                                      if (!ok) return;
+                                                      await _eliminarVentaPorId(
+                                                          idVenta,
+                                                          setModalState,
+                                                          ctx);
+                                                    },
+                                          icon:
+                                              const Icon(Icons.delete_outline),
+                                          label: Text('Eliminar',
+                                              style: GoogleFonts.poppins()),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+                            );
+                          },
+                        ), // cierre ListView.separated
+                      ), // cierre Flexible
+                  ], // cierre children de Column
+                ), // cierre Column
+              ), // cierre Padding
+            ); // cierre SafeArea
+          }, // cierre builder de StatefulBuilder
+        ); // cierre StatefulBuilder
+      }, // cierre builder de showModalBottomSheet
+    ); // cierre showModalBottomSheet
   }
 
   Future<void> _exportarVentas() async {
@@ -618,76 +749,99 @@ class _VentasViewState extends State<VentasView> {
         return;
       }
 
-      final excel = Excel.createExcel();
-      const sheetName = 'Ventas';
-      final sheet = excel[sheetName];
-      // Asegurar que esta hoja sea la predeterminada y eliminar 'Sheet1' vacía
-      try {
-        excel.setDefaultSheet(sheetName);
-      } catch (_) {}
-      try {
-        excel.delete('Sheet1');
-      } catch (_) {}
+      // Crear contenido CSV
+      final csvRows = <String>[];
+
+      // Encabezados
       final headers = [
         'Folio',
         'Encargado',
         'Fecha',
-        'MetodoPago',
-        'Ultimos4',
+        'Metodos de Pago',
+        'Montos',
+        'Tarjeta Ultimos 4',
         'Total',
-        'Items',
         'Productos',
+        'Cantidades',
+        'Precios Unitarios',
       ];
-      sheet.appendRow(headers);
-
-      // Estilos de encabezado
-      final headerStyle = CellStyle(
-        backgroundColorHex: '#F3E8FF', // lila claro
-        bold: true,
-        horizontalAlign: HorizontalAlign.Center,
-        verticalAlign: VerticalAlign.Center,
-        fontFamily: getFontFamily(FontFamily.Calibri),
-      );
-      for (var c = 0; c < headers.length; c++) {
-        final cell = sheet.cell(
-          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: 0),
-        );
-        cell.cellStyle = headerStyle;
-      }
-
-      // Anchos de columnas
-      sheet.setColWidth(0, 10); // Folio
-      sheet.setColWidth(1, 12); // Encargado
-      sheet.setColWidth(2, 20); // Fecha
-      sheet.setColWidth(3, 16); // MetodoPago
-      sheet.setColWidth(4, 10); // Ultimos4
-      sheet.setColWidth(5, 12); // Total
-      sheet.setColWidth(6, 8); // Items
-      sheet.setColWidth(7, 60); // Productos (largo)
+      csvRows.add(headers.join(';')); // Usar punto y coma como delimitador
 
       int appended = 0;
       for (final raw in _historial) {
-        if (raw is! Map) continue; // aceptar cualquier Map<*,*>
-        final m = raw as Map; // acceso laxo por clave
+        if (raw is! Map) continue;
+        final m = raw as Map;
 
-        final folio = m['folio'] ?? m['id'] ?? '';
-        // encargado puede venir con otra clave; además formatear a string
-        final encargadoVal = m['id_encargado'] ?? m['encargado'] ?? m['idUser'] ?? m['usuario'] ?? '';
+        final folio = (m['folio'] ?? m['id'] ?? '').toString();
+
+        // Encargado
+        final encargadoVal = m['id_encargado'] ??
+            m['encargado'] ??
+            m['idUser'] ??
+            m['usuario'] ??
+            '';
         final encargado = encargadoVal?.toString() ?? '';
-        // fecha puede venir en distintos campos; si es DateTime, formatear ISO corto
-        dynamic fechaRaw = m['fecha'] ?? m['created_at'] ?? m['fecha_creacion'] ?? m['fechaVenta'] ?? '';
+
+        // Fecha
+        dynamic fechaRaw = m['fecha'] ??
+            m['created_at'] ??
+            m['fecha_creacion'] ??
+            m['fechaVenta'] ??
+            '';
         String fecha;
         if (fechaRaw is DateTime) {
           fecha = fechaRaw.toIso8601String();
         } else {
           fecha = fechaRaw.toString();
         }
-        // método de pago y últimos 4 con fallbacks
-        final metodo = (m['metodo_pago'] ?? m['metodo'] ?? m['forma_pago'] ?? '').toString();
-        final last4 = (m['ultimos4'] ?? m['tarjeta_ultimos4'] ?? m['last4'] ?? m['ultimos_digitos'] ?? '').toString();
-        final total = m['total_final'] ?? m['total'] ?? '';
 
-        // productos puede venir como List o como String JSON
+        // Métodos de pago (puede ser múltiple o único)
+        String metodosPago = '';
+        String montosPago = '';
+        String tarjetaLast4 = '';
+
+        // Verificar si tiene métodos de pago múltiples
+        if (m['metodos_pago'] != null && m['metodos_pago'] is List) {
+          final metodosList = m['metodos_pago'] as List;
+          final metodos = <String>[];
+          final montos = <String>[];
+
+          for (var mp in metodosList) {
+            if (mp is Map) {
+              final metodo = (mp['metodo'] ?? '').toString();
+              final monto = (mp['monto'] ?? '').toString();
+              metodos.add(metodo.isEmpty
+                  ? 'N/D'
+                  : metodo[0].toUpperCase() + metodo.substring(1));
+              montos.add(monto); // Sin símbolo $
+
+              // Capturar últimos 4 de tarjeta
+              if (metodo.toLowerCase() == 'tarjeta' && mp['ultimos4'] != null) {
+                tarjetaLast4 = mp['ultimos4'].toString();
+              }
+            }
+          }
+
+          metodosPago = metodos.join(' + ');
+          montosPago = montos.join(' + ');
+        } else {
+          // Método de pago único (compatibilidad con versiones anteriores)
+          final metodo =
+              (m['metodo_pago'] ?? m['metodo'] ?? m['forma_pago'] ?? '')
+                  .toString();
+          metodosPago = metodo.isEmpty
+              ? 'N/D'
+              : metodo[0].toUpperCase() + metodo.substring(1);
+          montosPago =
+              '${m['total_final'] ?? m['total'] ?? '0.00'}'; // Sin símbolo $
+          tarjetaLast4 =
+              (m['ultimos4'] ?? m['tarjeta_ultimos4'] ?? m['last4'] ?? '')
+                  .toString();
+        }
+
+        final total = (m['total_final'] ?? m['total'] ?? '0.00').toString();
+
+        // Productos
         dynamic rawProds = m['productos'];
         List productos;
         if (rawProds is List) {
@@ -703,79 +857,55 @@ class _VentasViewState extends State<VentasView> {
           productos = [];
         }
 
-        final items = productos.length;
-        final productosStr = productos.map((p) {
-          if (p is Map) {
-            final n = p['nombre'] ?? '';
-            final c = p['cantidad'] ?? '';
-            final pr = p['precio'] ?? '';
-            return '$n x$c @\$$pr';
-          }
-          return p.toString();
-        }).join(' | ');
+        final nombresProductos = <String>[];
+        final cantidades = <String>[];
+        final precios = <String>[];
 
-        sheet.appendRow([
-          '$folio',
-          '$encargado',
-          '$fecha',
-          '$metodo',
-          '$last4',
-          '$total',
-          items,
-          productosStr,
-        ]);
-        // Aplicar estilos por fila (zebra + alineaciones)
-        final rowIndex = appended + 1; // encabezado en 0
-        final zebraBg = (rowIndex % 2 == 1) ? '#FAF5FF' : '#FFFFFF';
-        for (var c = 0; c < headers.length; c++) {
-          final cell = sheet.cell(
-            CellIndex.indexByColumnRow(columnIndex: c, rowIndex: rowIndex),
-          );
-          if (c == 5) {
-            cell.cellStyle = CellStyle(
-              backgroundColorHex: zebraBg,
-              horizontalAlign: HorizontalAlign.Right,
-              verticalAlign: VerticalAlign.Center,
-              fontFamily: getFontFamily(FontFamily.Calibri),
-            );
-          } else if (c == 6) {
-            cell.cellStyle = CellStyle(
-              backgroundColorHex: zebraBg,
-              horizontalAlign: HorizontalAlign.Center,
-              verticalAlign: VerticalAlign.Center,
-              fontFamily: getFontFamily(FontFamily.Calibri),
-            );
-          } else if (c == 7) {
-            cell.cellStyle = CellStyle(
-              backgroundColorHex: zebraBg,
-              horizontalAlign: HorizontalAlign.Left,
-              verticalAlign: VerticalAlign.Top,
-              fontFamily: getFontFamily(FontFamily.Calibri),
-            );
-          } else {
-            cell.cellStyle = CellStyle(
-              backgroundColorHex: zebraBg,
-              verticalAlign: VerticalAlign.Center,
-              fontFamily: getFontFamily(FontFamily.Calibri),
-            );
+        for (var p in productos) {
+          if (p is Map) {
+            nombresProductos.add((p['nombre'] ?? 'Producto').toString());
+            cantidades.add((p['cantidad'] ?? '0').toString());
+            precios.add((p['precio'] ?? '0.00').toString()); // Sin símbolo $
           }
         }
+
+        final productosStr =
+            nombresProductos.join(' | '); // Usar | en lugar de ;
+        final cantidadesStr = cantidades.join(' | ');
+        final preciosStr = precios.join(' | ');
+
+        // Agregar fila al CSV
+        final row = [
+          folio,
+          encargado,
+          fecha,
+          metodosPago,
+          montosPago,
+          tarjetaLast4.isEmpty ? '-' : '****$tarjetaLast4',
+          total,
+          productosStr.isEmpty ? 'Sin productos' : productosStr,
+          cantidadesStr.isEmpty ? '-' : cantidadesStr,
+          preciosStr.isEmpty ? '-' : preciosStr,
+        ];
+        csvRows.add(row.join(';')); // Usar punto y coma como delimitador
         appended++;
       }
 
-      final bytes = excel.encode();
-      if (bytes == null) throw Exception('No se pudo generar el archivo');
+      // Agregar BOM UTF-8 para compatibilidad con Excel
+      final csvContent = csvRows.join('\r\n'); // Usar CRLF para Windows
+      final bomUtf8 = [0xEF, 0xBB, 0xBF]; // BOM para UTF-8
+      final contentBytes = utf8.encode(csvContent);
+      final bytes = Uint8List.fromList([...bomUtf8, ...contentBytes]);
 
       final fileName =
-          'ventas_${DateTime.now().toIso8601String().replaceAll(':', '-')}.xlsx';
-      final data = Uint8List.fromList(bytes);
+          'ventas_${DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19)}.csv';
 
-      // Compartir/Enviar el archivo en lugar de descargar automáticamente
-      await _shareExcel(data, fileName);
+      // Compartir/Guardar el archivo
+      await _shareFile(bytes, fileName);
 
       if (!mounted) return;
       _showTopBar(
-          'Excel listo',
+          'CSV exportado',
           appended > 0
               ? 'Se preparó $fileName con $appended ventas.'
               : 'Se preparó $fileName (sin filas)');
@@ -788,6 +918,43 @@ class _VentasViewState extends State<VentasView> {
         ),
       );
     }
+  }
+
+  // Método para escapar valores CSV
+  String _escapeCsv(String value) {
+    // Solo envolver en comillas si contiene caracteres especiales
+    if (value.contains(',') ||
+        value.contains('"') ||
+        value.contains('\n') ||
+        value.contains('\r') ||
+        value.startsWith(' ') ||
+        value.endsWith(' ')) {
+      // Escapar comillas duplicándolas
+      final escaped = value.replaceAll('"', '""');
+      return '"$escaped"';
+    }
+    return value;
+  }
+
+  Future<void> _shareFile(Uint8List bytes, String fileName) async {
+    if (kIsWeb) {
+      // En web, descargar el archivo
+      final mimeType =
+          fileName.endsWith('.csv') ? 'text/csv' : 'application/octet-stream';
+      final blob = html.Blob([bytes], mimeType);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      return;
+    }
+
+    final dir = await getTemporaryDirectory();
+    final path = '${dir.path}/$fileName';
+    final f = io.File(path);
+    await f.writeAsBytes(bytes, flush: true);
+    await Share.shareXFiles([XFile(path)], text: 'Reporte de ventas');
   }
 
   Future<void> _shareExcel(Uint8List bytes, String fileName) async {
@@ -810,8 +977,16 @@ class _VentasViewState extends State<VentasView> {
     await Share.shareXFiles([XFile(path)], text: 'Ventas exportadas');
   }
 
-  Future<void> _eliminarVentaPorId(int idVenta) async {
+  Future<void> _eliminarVentaPorId(int idVenta,
+      [StateSetter? setModalState, BuildContext? modalContext]) async {
     try {
+      // Mostrar loading en el modal si está disponible
+      if (setModalState != null) {
+        setModalState(() {
+          _loadingHistorial = true;
+        });
+      }
+
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       final headers = {
@@ -824,19 +999,39 @@ class _VentasViewState extends State<VentasView> {
       final res = await http.delete(uri, headers: headers);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         if (!mounted) return;
+
+        // Mostrar confirmación
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Venta #$idVenta eliminada',
                   style: GoogleFonts.poppins())),
         );
-        // Refrescar historial en el sheet actual
-        await _fetchHistorial();
-        if (mounted) setState(() {});
+
+        // Cerrar el modal actual
+        if (modalContext != null && Navigator.canPop(modalContext)) {
+          Navigator.pop(modalContext);
+        }
+
+        // Esperar un momento para que se cierre el modal
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Reabrir el modal con datos actualizados
+        if (mounted) {
+          await _showHistorialSheet();
+        }
       } else {
         throw Exception('Estado ${res.statusCode}');
       }
     } catch (e) {
       if (!mounted) return;
+
+      // Resetear loading
+      if (setModalState != null) {
+        setModalState(() {
+          _loadingHistorial = false;
+        });
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.red.shade400,
@@ -1054,100 +1249,184 @@ class _VentasViewState extends State<VentasView> {
               decoration: const BoxDecoration(color: Color(0xFFF3F3F3)),
               child: Column(
                 children: [
-                  // Método de pago y últimos 4
-                  Row(
-                    children: [
-                      Flexible(
-                        flex: 3,
-                        child: DropdownButtonFormField<String>(
-                          value: _metodoPago,
-                          decoration: InputDecoration(
-                            labelText: 'Método de pago',
-                            labelStyle: GoogleFonts.poppins(),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  // Métodos de pago múltiples
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade300,
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Métodos de Pago',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: gradientStart,
                           ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'Efectivo',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.attach_money, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Efectivo'),
-                                ],
-                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Efectivo
+                        Row(
+                          children: [
+                            const Icon(Icons.attach_money, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Efectivo',
+                                  style: GoogleFonts.poppins(fontSize: 14)),
                             ),
-                            DropdownMenuItem(
-                              value: 'Tarjeta',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.credit_card, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Tarjeta'),
-                                ],
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Transferencia',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.swap_horiz, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Transferencia'),
-                                ],
+                            SizedBox(
+                              width: 120,
+                              child: TextField(
+                                controller: _montosControllers['Efectivo'],
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                style: GoogleFonts.poppins(fontSize: 14),
+                                decoration: InputDecoration(
+                                  prefixText: '\$',
+                                  hintText: '0.00',
+                                  hintStyle: GoogleFonts.poppins(
+                                      color: Colors.grey.shade400),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
-                          onChanged: (v) {
-                            if (v == null) return;
-                            setState(() {
-                              _metodoPago = v;
-                              if (_metodoPago != 'Tarjeta') {
-                                _last4Ctrl.clear();
-                              }
-                            });
-                          },
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        flex: 2,
-                        child: TextField(
-                          controller: _last4Ctrl,
-                          enabled: _metodoPago == 'Tarjeta',
-                          maxLength: 4,
-                          keyboardType: TextInputType.number,
-                          style: GoogleFonts.poppins(),
-                          decoration: InputDecoration(
-                            counterText: '',
-                            labelText: 'Últimos 4',
-                            prefixIcon: const Icon(Icons.credit_card),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
+                        const SizedBox(height: 8),
+                        // Tarjeta
+                        Row(
+                          children: [
+                            const Icon(Icons.credit_card, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Tarjeta',
+                                      style: GoogleFonts.poppins(fontSize: 14)),
+                                  if ((double.tryParse(
+                                              _montosControllers['Tarjeta']!
+                                                  .text
+                                                  .trim()) ??
+                                          0.0) >
+                                      0)
+                                    SizedBox(
+                                      width: 100,
+                                      child: TextField(
+                                        controller: _last4Ctrl,
+                                        maxLength: 4,
+                                        keyboardType: TextInputType.number,
+                                        style:
+                                            GoogleFonts.poppins(fontSize: 12),
+                                        decoration: InputDecoration(
+                                          counterText: '',
+                                          hintText: 'Últimos 4',
+                                          hintStyle: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade400),
+                                          isDense: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 6, vertical: 4),
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                        ),
+                                        onChanged: (v) {
+                                          if (v.length > 4) {
+                                            _last4Ctrl.text = v.substring(0, 4);
+                                            _last4Ctrl.selection =
+                                                TextSelection.fromPosition(
+                                                    const TextPosition(
+                                                        offset: 4));
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          ),
-                          onChanged: (v) {
-                            if (v.length > 4) {
-                              _last4Ctrl.text = v.substring(0, 4);
-                              _last4Ctrl.selection = TextSelection.fromPosition(
-                                  const TextPosition(offset: 4));
-                            }
-                          },
+                            SizedBox(
+                              width: 120,
+                              child: TextField(
+                                controller: _montosControllers['Tarjeta'],
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                style: GoogleFonts.poppins(fontSize: 14),
+                                decoration: InputDecoration(
+                                  prefixText: '\$',
+                                  hintText: '0.00',
+                                  hintStyle: GoogleFonts.poppins(
+                                      color: Colors.grey.shade400),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onChanged: (v) {
+                                  setState(
+                                      () {}); // Actualizar UI para mostrar campo de últimos 4
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        // Transferencia
+                        Row(
+                          children: [
+                            const Icon(Icons.swap_horiz, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Transferencia',
+                                  style: GoogleFonts.poppins(fontSize: 14)),
+                            ),
+                            SizedBox(
+                              width: 120,
+                              child: TextField(
+                                controller: _montosControllers['Transferencia'],
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                style: GoogleFonts.poppins(fontSize: 14),
+                                decoration: InputDecoration(
+                                  prefixText: '\$',
+                                  hintText: '0.00',
+                                  hintStyle: GoogleFonts.poppins(
+                                      color: Colors.grey.shade400),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(

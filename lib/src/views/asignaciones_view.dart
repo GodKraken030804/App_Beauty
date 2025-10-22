@@ -81,14 +81,14 @@ class _AsignacionesViewState extends State<AsignacionesView> {
         final List data = json.decode(respUsers.body);
         final mapUsers = <int, String>{};
         for (final u in data) {
-          final rol = (u['rol'] ?? '').toString().toLowerCase();
+          final rol = (u['usuario'] ?? '').toString().toLowerCase();
           if (rol == 'encargado') {
             final id = (u['id'] is String)
                 ? int.tryParse(u['id'])
                 : (u['id'] as num?)?.toInt();
             if (id != null) {
               final nombre =
-                  (u['nombre'] ?? u['gmail'] ?? 'Encargado').toString();
+                  (u['nombre'] ?? u['gmail'] ?? 'Sin nombre').toString();
               mapUsers[id] = nombre;
             }
           }
@@ -452,7 +452,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                               child: Text(
                                                 _cursosNombres.containsKey(
                                                         asig.idCurso)
-                                                    ? 'Curso: ${_cursosNombres[asig.idCurso]} (ID: ${asig.idCurso})'
+                                                    ? 'Curso: ${_cursosNombres[asig.idCurso]}'
                                                     : 'Curso ID: ${asig.idCurso}',
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 16,
@@ -472,7 +472,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                               child: Text(
                                                 _encargadosNombres.containsKey(
                                                         asig.idEncargado)
-                                                    ? 'Encargado: ${_encargadosNombres[asig.idEncargado]} (ID: ${asig.idEncargado})'
+                                                    ? 'Encargado: ${_encargadosNombres[asig.idEncargado]}'
                                                     : 'Encargado ID: ${asig.idEncargado}',
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 16,
@@ -526,7 +526,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                                     Icons.upload_file,
                                                     size: 18),
                                                 label: Text(
-                                                  'Subir Excel',
+                                                  'Actualizar Excel',
                                                   style: GoogleFonts.poppins(),
                                                 ),
                                               ),
