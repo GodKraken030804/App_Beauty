@@ -310,6 +310,9 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
     final imagenNombre = (producto['imagen'] ?? '').toString().split('/').last;
     final imagenUrl = "${dotenv.env['API_GATEWAY']}imagenes/$imagenNombre";
     final cantidad = producto['cantidad_asignada'] ?? 0;
+    final cantidadInt = cantidad is num
+        ? cantidad.toInt()
+        : int.tryParse(cantidad.toString()) ?? 0;
     final nombre = producto['nombre'] ?? '';
     final idRaw = producto['id'];
     final int id =
@@ -319,13 +322,13 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
     return _ProductTile(
       nombre: nombre.toString(),
       imagenUrl: imagenUrl,
-      cantidad: cantidad is num
-          ? cantidad.toInt()
-          : int.tryParse(cantidad.toString()) ?? 0,
+      cantidad: cantidadInt,
       isFavorite: isFav,
       onToggleFavorite: () => _toggleFavorite(id),
       gradientColors: gradientColors,
       onTap: () => _onTapProducto(producto),
+      lowStock: cantidadInt > 0 && cantidadInt < 5, // Indica stock bajo
+      outOfStock: cantidadInt == 0, // Indica sin stock
     );
   }
 
@@ -386,6 +389,9 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
       );
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        // ✅ Actualizar cantidad local después de agregar exitosamente al carrito
+        await _actualizarCantidadLocal(producto, cantidad);
+
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -411,6 +417,180 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
           backgroundColor: Colors.red.shade400,
         ),
       );
+    }
+  }
+
+  /// Actualiza la cantidad asignada localmente y en el backend después de agregar al carrito
+  Future<void> _actualizarCantidadLocal(
+      Map producto, int cantidadVendida) async {
+    // 1. Actualizar estado local inmediatamente
+    setState(() {
+      // Buscar el producto en la lista local y restar la cantidad
+      final index = productosAsignados.indexWhere((p) {
+        final pIdRaw = p['id'];
+        final prodIdRaw = producto['id'];
+        final pId = pIdRaw is int
+            ? pIdRaw
+            : int.tryParse(pIdRaw?.toString() ?? '') ?? -1;
+        final prodId = prodIdRaw is int
+            ? prodIdRaw
+            : int.tryParse(prodIdRaw?.toString() ?? '') ?? -2;
+        return pId == prodId;
+      });
+
+      if (index != -1) {
+        final cantidadActual =
+            productosAsignados[index]['cantidad_asignada'] ?? 0;
+        final cantidadActualInt = cantidadActual is num
+            ? cantidadActual.toInt()
+            : int.tryParse(cantidadActual.toString()) ?? 0;
+
+        final nuevaCantidad = (cantidadActualInt - cantidadVendida)
+            .clamp(0, double.infinity)
+            .toInt();
+        productosAsignados[index]['cantidad_asignada'] = nuevaCantidad;
+
+        // Mostrar mensaje si el producto se quedó sin stock
+        if (nuevaCantidad == 0) {
+          debugPrint(
+              '⚠️ Producto "${productosAsignados[index]['nombre']}" sin stock');
+        }
+      }
+    });
+
+    // 2. Actualizar en el backend de forma asíncrona
+    await _actualizarCantidadBackend(producto, cantidadVendida);
+  }
+
+  /// Actualiza la cantidad en la tabla 'asignado' del backend
+  Future<void> _actualizarCantidadBackend(
+      Map producto, int cantidadVendida) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) return;
+
+      final decoded = JwtDecoder.decode(token);
+      final dynamic userIdRaw = decoded['id'];
+      final int userId = userIdRaw is int
+          ? userIdRaw
+          : int.tryParse(userIdRaw?.toString() ?? '') ?? -1;
+
+      final dynamic productoIdRaw = producto['id'];
+      final int productoId = productoIdRaw is int
+          ? productoIdRaw
+          : int.tryParse(productoIdRaw?.toString() ?? '') ?? -1;
+
+      // Obtener todos los registros de asignación
+      final asignadoUri =
+          Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/asignado');
+      final getRes = await http.get(asignadoUri);
+
+      if (getRes.statusCode == 200) {
+        final asignaciones = jsonDecode(getRes.body) as List;
+
+        // Buscar registros específicos para este usuario y producto
+        final asignadosRelacionados = asignaciones.where((a) {
+          final dynamic aid = a['iduser'];
+          final dynamic pid = a['idproduc'];
+          final int aidInt =
+              aid is int ? aid : int.tryParse(aid?.toString() ?? '') ?? -999999;
+          final int pidInt =
+              pid is int ? pid : int.tryParse(pid?.toString() ?? '') ?? -999999;
+          return aidInt == userId && pidInt == productoId;
+        }).toList();
+
+        if (asignadosRelacionados.isEmpty) {
+          debugPrint(
+              '⚠️ No se encontró asignación para usuario $userId y producto $productoId');
+          return;
+        }
+
+        // Estrategia: Actualizar el primer registro encontrado restando la cantidad vendida
+        final asignacionActual = asignadosRelacionados.first;
+        final dynamic idAsignacionRaw = asignacionActual['id'];
+        final int? idAsignacion = idAsignacionRaw is int
+            ? idAsignacionRaw
+            : int.tryParse(idAsignacionRaw?.toString() ?? '');
+
+        final cantidadActualAsignada = asignacionActual['cantidad'] ?? 0;
+        final cantidadActualInt = cantidadActualAsignada is num
+            ? cantidadActualAsignada.toInt()
+            : int.tryParse(cantidadActualAsignada.toString()) ?? 0;
+
+        final nuevaCantidad = (cantidadActualInt - cantidadVendida)
+            .clamp(0, double.infinity)
+            .toInt();
+
+        // Intentar actualizar con PUT (si el endpoint existe) o DELETE + POST
+        if (idAsignacion != null) {
+          // Opción 1: Intentar PUT
+          final putUri = Uri.parse(
+              '${dotenv.env['API_EMPRESA']}api/v1/asignado/$idAsignacion');
+          final putRes = await http.put(
+            putUri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'iduser': userId,
+              'idproduc': productoId,
+              'cantidad': nuevaCantidad,
+            }),
+          );
+
+          if (putRes.statusCode >= 200 && putRes.statusCode < 300) {
+            debugPrint(
+                '✅ Cantidad actualizada en backend: $nuevaCantidad unidades');
+            return;
+          }
+
+          // Si PUT no funciona, intentar DELETE + POST
+          debugPrint(
+              '⚠️ PUT falló (${putRes.statusCode}), intentando DELETE + POST...');
+
+          final deleteUri = Uri.parse(
+              '${dotenv.env['API_EMPRESA']}api/v1/asignado/$idAsignacion');
+          final deleteRes = await http.delete(deleteUri, headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          });
+
+          if (deleteRes.statusCode >= 200 && deleteRes.statusCode < 300) {
+            // Si la nueva cantidad es > 0, crear un nuevo registro
+            if (nuevaCantidad > 0) {
+              final postRes = await http.post(
+                asignadoUri,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                  'Authorization': 'Bearer $token',
+                },
+                body: jsonEncode({
+                  'iduser': userId,
+                  'idproduc': productoId,
+                  'cantidad': nuevaCantidad,
+                }),
+              );
+
+              if (postRes.statusCode >= 200 && postRes.statusCode < 300) {
+                debugPrint(
+                    '✅ Cantidad actualizada en backend (DELETE + POST): $nuevaCantidad unidades');
+              } else {
+                debugPrint(
+                    '⚠️ Error al crear nuevo registro: ${postRes.statusCode}');
+              }
+            } else {
+              debugPrint('✅ Registro eliminado (cantidad = 0)');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error al actualizar cantidad en backend: $e');
+      // No mostramos error al usuario para no interrumpir el flujo, ya que el local está actualizado
     }
   }
 
@@ -640,6 +820,8 @@ class _ProductTile extends StatefulWidget {
   final VoidCallback onToggleFavorite;
   final List<Color> gradientColors;
   final VoidCallback? onTap;
+  final bool lowStock;
+  final bool outOfStock;
 
   const _ProductTile({
     Key? key,
@@ -650,6 +832,8 @@ class _ProductTile extends StatefulWidget {
     required this.onToggleFavorite,
     required this.gradientColors,
     this.onTap,
+    this.lowStock = false,
+    this.outOfStock = false,
   }) : super(key: key);
 
   @override
@@ -662,153 +846,181 @@ class _ProductTileState extends State<_ProductTile> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
+      onTapDown:
+          widget.outOfStock ? null : (_) => setState(() => _pressed = true),
+      onTapUp:
+          widget.outOfStock ? null : (_) => setState(() => _pressed = false),
+      onTapCancel:
+          widget.outOfStock ? null : () => setState(() => _pressed = false),
+      onTap: widget.outOfStock ? null : widget.onTap,
       child: AnimatedScale(
         scale: _pressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: widget.gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
-                offset: Offset(2, 4),
-              )
-            ],
-          ),
+        child: Opacity(
+          opacity: widget.outOfStock ? 0.6 : 1.0,
           child: Container(
-            margin: const EdgeInsets.all(2.0),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: widget.gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(2, 4),
+                )
+              ],
             ),
-            child: Stack(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Image area
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(20),
-                          topRight: Radius.circular(20),
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.network(
-                              widget.imagenUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                  child: Icon(Icons.broken_image,
-                                      size: 64, color: Colors.grey),
-                                );
-                              },
-                            ),
-                            // subtle bottom gradient for readability
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              height: 60,
-                              child: IgnorePointer(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.black.withOpacity(0.0),
-                                        Colors.black.withOpacity(0.25),
-                                      ],
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
+            child: Container(
+              margin: const EdgeInsets.all(2.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Stack(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Image area
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(20),
+                            topRight: Radius.circular(20),
+                          ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                widget.imagenUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Icon(Icons.broken_image,
+                                        size: 64, color: Colors.grey),
+                                  );
+                                },
+                              ),
+                              // subtle bottom gradient for readability
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                height: 60,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.black.withOpacity(0.0),
+                                          Colors.black.withOpacity(0.25),
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
                                     ),
                                   ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Info area
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              widget.nombre,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                color: widget.gradientColors.first,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: widget.outOfStock
+                                        ? [
+                                            Colors.grey.shade400,
+                                            Colors.grey.shade500
+                                          ]
+                                        : widget.lowStock
+                                            ? [
+                                                Colors.orange.shade400,
+                                                Colors.orange.shade600
+                                              ]
+                                            : widget.gradientColors,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    )
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      widget.outOfStock
+                                          ? Icons.block
+                                          : widget.lowStock
+                                              ? Icons.warning_amber_rounded
+                                              : Icons.inventory_2,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      widget.outOfStock
+                                          ? 'Sin stock'
+                                          : widget.lowStock
+                                              ? '${widget.cantidad} (Bajo)'
+                                              : '${widget.cantidad} unidades',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    // Info area
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            widget.nombre,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
-                              color: widget.gradientColors.first,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                    colors: widget.gradientColors),
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
-                                  )
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.inventory_2,
-                                      color: Colors.white, size: 16),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${widget.cantidad} unidades',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                // Favorite star
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: _FavoriteStar(
-                    active: widget.isFavorite,
-                    onTap: widget.onToggleFavorite,
-                    colors: widget.gradientColors,
+                    ],
                   ),
-                ),
-              ],
+                  // Favorite star
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _FavoriteStar(
+                      active: widget.isFavorite,
+                      onTap: widget.onToggleFavorite,
+                      colors: widget.gradientColors,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

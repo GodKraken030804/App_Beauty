@@ -219,7 +219,7 @@ class _VentasViewState extends State<VentasView> {
           if (idProd != null) 'id_producto': idProd,
           'nombre': nombre,
           'cantidad': cantidad,
-          'precio': _round2(precio),
+          'precio': _asMoneyStr(_round2(precio)),
         };
 
         // Agregar indicadores especiales
@@ -233,15 +233,36 @@ class _VentasViewState extends State<VentasView> {
         productos.add(productoData);
       }
 
+      // Agregar métodos de pago al array de productos (según el formato del backend)
+      for (var metodo in _metodosPago.keys) {
+        final monto =
+            double.tryParse(_montosControllers[metodo]!.text.trim()) ?? 0.0;
+        if (monto > 0) {
+          final pagoData = {
+            'monto': _asMoneyStr(_round2(monto)),
+            'metodo': metodo.toLowerCase(),
+          };
+
+          if (metodo == 'Tarjeta' && _last4Ctrl.text.trim().length == 4) {
+            pagoData['ultimos4'] = _last4Ctrl.text.trim();
+          }
+
+          if (metodo == 'Transferencia' &&
+              _last4TransferenciaCtrl.text.trim().length == 4) {
+            pagoData['ultimos4'] = _last4TransferenciaCtrl.text.trim();
+          }
+
+          productos.add(pagoData);
+        }
+      }
+
       final descuento = double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0;
 
       final body = jsonEncode({
         'id_encargado': userId,
         'total_final': _asMoneyStr(_totalConDescuento),
-        'subtotal': _asMoneyStr(_total),
         if (descuento > 0) 'descuento': _asMoneyStr(descuento),
         'productos': productos,
-        'metodos_pago': metodosPagoActivos,
       });
 
       // Usar directamente el endpoint que sí responde OK (API_EMPRESA)
@@ -287,9 +308,13 @@ class _VentasViewState extends State<VentasView> {
                     Text('Métodos de pago:',
                         style:
                             GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                    ...metodosPagoActivos.map((mp) {
+                    // Filtrar solo los métodos de pago del array productos
+                    ...productos
+                        .where((item) => item['metodo'] != null)
+                        .map((mp) {
                       final metodo = mp['metodo'] ?? '';
-                      final monto = mp['monto'] ?? 0.0;
+                      final montoStr = mp['monto'] ?? '0.00';
+                      final monto = double.tryParse(montoStr.toString()) ?? 0.0;
                       final last4 = mp['ultimos4'] ?? '';
                       String metodoTexto;
 
@@ -321,7 +346,13 @@ class _VentasViewState extends State<VentasView> {
                     Text('Productos:',
                         style:
                             GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                    ...productos.asMap().entries.map((entry) {
+                    // Filtrar solo los productos reales (que tienen 'nombre')
+                    ...productos
+                        .where((item) => item['nombre'] != null)
+                        .toList()
+                        .asMap()
+                        .entries
+                        .map((entry) {
                       final p = entry.value;
                       final idx = entry.key;
                       final esRegalo = _articulosRegalo.contains(idx);
@@ -330,6 +361,9 @@ class _VentasViewState extends State<VentasView> {
                       String extras = '';
                       if (esRegalo) extras += ' 🎁';
                       if (esPractica) extras += ' 📚';
+
+                      final precioStr = p['precio']?.toString() ?? '0.00';
+                      final precio = double.tryParse(precioStr) ?? 0.0;
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -340,8 +374,7 @@ class _VentasViewState extends State<VentasView> {
                                 child: Text(
                                     '${p['nombre']} x${p['cantidad']}$extras',
                                     style: GoogleFonts.poppins())),
-                            Text(
-                                '\$${(p['precio'] as double).toStringAsFixed(2)}',
+                            Text('\$${precio.toStringAsFixed(2)}',
                                 style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.w600)),
                           ],
@@ -661,99 +694,81 @@ class _VentasViewState extends State<VentasView> {
                                         style: GoogleFonts.poppins(
                                             color: Colors.grey.shade700)),
                                     Builder(builder: (_) {
-                                      // Verificar si tiene métodos de pago múltiples
-                                      if (v['metodos_pago'] != null &&
-                                          v['metodos_pago'] is List) {
-                                        final metodosList =
-                                            v['metodos_pago'] as List;
-                                        if (metodosList.isEmpty) {
-                                          return const SizedBox.shrink();
-                                        }
+                                      // Extraer métodos de pago del array de productos
+                                      final metodosPago = productos
+                                          .where((item) =>
+                                              item is Map &&
+                                              item['metodo'] != null)
+                                          .toList();
 
-                                        return Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text('Pagos:',
-                                                style: GoogleFonts.poppins(
-                                                    color: Colors.grey.shade700,
-                                                    fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight.w600)),
-                                            ...metodosList.map((mp) {
-                                              if (mp is Map) {
-                                                final metodo =
-                                                    (mp['metodo'] ?? '')
-                                                        .toString();
-                                                final monto =
-                                                    (mp['monto'] ?? '')
-                                                        .toString();
-                                                final last4 =
-                                                    (mp['ultimos4'] ?? '')
-                                                        .toString();
-
-                                                final metodoTexto = metodo
-                                                        .isEmpty
-                                                    ? 'N/D'
-                                                    : metodo[0].toUpperCase() +
-                                                        metodo.substring(1);
-
-                                                final pagoTexto = metodo
-                                                                .toLowerCase() ==
-                                                            'tarjeta' &&
-                                                        last4.isNotEmpty
-                                                    ? '$metodoTexto **** $last4: \$$monto'
-                                                    : '$metodoTexto: \$$monto';
-
-                                                return Text(
-                                                  pagoTexto,
-                                                  style: GoogleFonts.poppins(
-                                                      color:
-                                                          Colors.grey.shade700,
-                                                      fontSize: 11),
-                                                );
-                                              }
-                                              return const SizedBox.shrink();
-                                            }),
-                                          ],
-                                        );
-                                      }
-
-                                      // Fallback: método de pago único (compatibilidad)
-                                      final metodo = (v['metodo_pago'] ??
-                                              v['metodo'] ??
-                                              '')
-                                          .toString();
-                                      final last4 = (v['ultimos4'] ??
-                                              v['tarjeta_ultimos4'] ??
-                                              v['last4'] ??
-                                              '')
-                                          .toString();
-                                      if (metodo.isEmpty && last4.isEmpty) {
+                                      if (metodosPago.isEmpty) {
                                         return const SizedBox.shrink();
                                       }
-                                      return Text(
-                                        metodo.toLowerCase() == 'tarjeta' &&
-                                                last4.isNotEmpty
-                                            ? 'Pago: Tarjeta **** $last4'
-                                            : 'Pago: ${metodo.isEmpty ? 'N/D' : metodo}',
-                                        style: GoogleFonts.poppins(
-                                            color: Colors.grey.shade700,
-                                            fontSize: 12),
+
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Pagos:',
+                                              style: GoogleFonts.poppins(
+                                                  color: Colors.grey.shade700,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600)),
+                                          ...metodosPago.map((mp) {
+                                            final metodo =
+                                                (mp['metodo'] ?? '').toString();
+                                            final monto =
+                                                (mp['monto'] ?? '').toString();
+                                            final last4 = (mp['ultimos4'] ?? '')
+                                                .toString();
+
+                                            final metodoTexto = metodo.isEmpty
+                                                ? 'N/D'
+                                                : metodo[0].toUpperCase() +
+                                                    metodo.substring(1);
+
+                                            final pagoTexto = (metodo
+                                                                .toLowerCase() ==
+                                                            'tarjeta' ||
+                                                        metodo.toLowerCase() ==
+                                                            'transferencia') &&
+                                                    last4.isNotEmpty
+                                                ? '$metodoTexto **** $last4: \$$monto'
+                                                : '$metodoTexto: \$$monto';
+
+                                            return Text(
+                                              pagoTexto,
+                                              style: GoogleFonts.poppins(
+                                                  color: Colors.grey.shade700,
+                                                  fontSize: 11),
+                                            );
+                                          }),
+                                        ],
                                       );
                                     }),
                                   ],
                                 ),
                                 children: [
-                                  ...productos.map((p) {
+                                  // Mostrar solo los productos reales (que tienen 'nombre')
+                                  ...productos
+                                      .where((p) =>
+                                          p is Map && p['nombre'] != null)
+                                      .map((p) {
                                     final nombre =
                                         (p['nombre'] ?? '').toString();
                                     final precio =
                                         (p['precio'] ?? '').toString();
                                     final cantidad = p['cantidad'] ?? 0;
+
+                                    // Indicadores de regalo o práctica
+                                    String extras = '';
+                                    if (p['es_regalo'] == true) extras += ' 🎁';
+                                    if (p['es_practica'] == true)
+                                      extras += ' 📚';
+
                                     return ListTile(
                                       dense: true,
-                                      title: Text(nombre,
+                                      title: Text('$nombre$extras',
                                           style: GoogleFonts.poppins()),
                                       trailing: Text('${cantidad} x \$$precio',
                                           style: GoogleFonts.poppins(
@@ -874,9 +889,11 @@ class _VentasViewState extends State<VentasView> {
         'Folio',
         'Encargado',
         'Fecha',
-        'Metodos de Pago',
-        'Montos',
+        'Efectivo',
+        'Tarjeta',
+        'Transferencia',
         'Tarjeta Ultimos 4',
+        'Transferencia Ultimos 4',
         'Total',
         'Productos',
         'Cantidades',
@@ -899,90 +916,91 @@ class _VentasViewState extends State<VentasView> {
             '';
         final encargado = encargadoVal?.toString() ?? '';
 
-        // Fecha
-        dynamic fechaRaw = m['fecha'] ??
+        // Fecha - procesamiento mejorado
+        dynamic fechaRaw = m['fecha_venta'] ??
+            m['fecha'] ??
             m['created_at'] ??
             m['fecha_creacion'] ??
             m['fechaVenta'] ??
+            m['createdAt'] ??
             '';
-        String fecha;
-        if (fechaRaw is DateTime) {
-          fecha = fechaRaw.toIso8601String();
-        } else {
-          fecha = fechaRaw.toString();
-        }
+        String fecha = '-';
 
-        // Métodos de pago (puede ser múltiple o único)
-        String metodosPago = '';
-        String montosPago = '';
-        String tarjetaLast4 = '';
-
-        // Verificar si tiene métodos de pago múltiples
-        if (m['metodos_pago'] != null && m['metodos_pago'] is List) {
-          final metodosList = m['metodos_pago'] as List;
-          final metodos = <String>[];
-          final montos = <String>[];
-
-          for (var mp in metodosList) {
-            if (mp is Map) {
-              final metodo = (mp['metodo'] ?? '').toString();
-              final monto = (mp['monto'] ?? '').toString();
-              metodos.add(metodo.isEmpty
-                  ? 'N/D'
-                  : metodo[0].toUpperCase() + metodo.substring(1));
-              montos.add(monto); // Sin símbolo $
-
-              // Capturar últimos 4 de tarjeta
-              if (metodo.toLowerCase() == 'tarjeta' && mp['ultimos4'] != null) {
-                tarjetaLast4 = mp['ultimos4'].toString();
-              }
+        if (fechaRaw != null && fechaRaw != '') {
+          if (fechaRaw is DateTime) {
+            fecha = fechaRaw.toIso8601String().substring(0, 10); // YYYY-MM-DD
+          } else {
+            final fechaStr = fechaRaw.toString();
+            // Intentar parsear diferentes formatos de fecha
+            try {
+              final dt = DateTime.parse(fechaStr);
+              fecha = dt.toIso8601String().substring(0, 10); // YYYY-MM-DD
+            } catch (_) {
+              // Si falla el parseo, usar el string tal cual
+              fecha =
+                  fechaStr.length > 10 ? fechaStr.substring(0, 10) : fechaStr;
             }
           }
-
-          metodosPago = metodos.join(' + ');
-          montosPago = montos.join(' + ');
-        } else {
-          // Método de pago único (compatibilidad con versiones anteriores)
-          final metodo =
-              (m['metodo_pago'] ?? m['metodo'] ?? m['forma_pago'] ?? '')
-                  .toString();
-          metodosPago = metodo.isEmpty
-              ? 'N/D'
-              : metodo[0].toUpperCase() + metodo.substring(1);
-          montosPago =
-              '${m['total_final'] ?? m['total'] ?? '0.00'}'; // Sin símbolo $
-          tarjetaLast4 =
-              (m['ultimos4'] ?? m['tarjeta_ultimos4'] ?? m['last4'] ?? '')
-                  .toString();
         }
 
         final total = (m['total_final'] ?? m['total'] ?? '0.00').toString();
 
-        // Productos
+        // Productos - Ahora incluyen métodos de pago en el mismo array
         dynamic rawProds = m['productos'];
-        List productos;
+        List productosRaw;
         if (rawProds is List) {
-          productos = rawProds;
+          productosRaw = rawProds;
         } else if (rawProds is String) {
           try {
             final decoded = jsonDecode(rawProds);
-            productos = (decoded is List) ? decoded : [];
+            productosRaw = (decoded is List) ? decoded : [];
           } catch (_) {
-            productos = [];
+            productosRaw = [];
           }
         } else {
-          productos = [];
+          productosRaw = [];
         }
 
+        // Separar productos de métodos de pago
         final nombresProductos = <String>[];
         final cantidades = <String>[];
         final precios = <String>[];
 
-        for (var p in productos) {
-          if (p is Map) {
-            nombresProductos.add((p['nombre'] ?? 'Producto').toString());
-            cantidades.add((p['cantidad'] ?? '0').toString());
-            precios.add((p['precio'] ?? '0.00').toString()); // Sin símbolo $
+        // Separar métodos de pago por tipo
+        String efectivo = '-';
+        String tarjeta = '-';
+        String tarjetaLast4 = '-';
+        String transferencia = '-';
+        String transferenciaLast4 = '-';
+
+        for (var item in productosRaw) {
+          if (item is Map) {
+            // Si tiene 'nombre', es un producto
+            if (item['nombre'] != null) {
+              nombresProductos.add((item['nombre'] ?? 'Producto').toString());
+              cantidades.add((item['cantidad'] ?? '0').toString());
+              precios.add((item['precio'] ?? '0.00').toString());
+            }
+            // Si tiene 'metodo', es un método de pago
+            else if (item['metodo'] != null) {
+              final metodo = (item['metodo'] ?? '').toString().toLowerCase();
+              final monto = (item['monto'] ?? '0.00').toString();
+              final last4 = (item['ultimos4'] ?? '').toString();
+
+              if (metodo == 'efectivo') {
+                efectivo = monto;
+              } else if (metodo == 'tarjeta') {
+                tarjeta = monto;
+                if (last4.isNotEmpty) {
+                  tarjetaLast4 = '****$last4';
+                }
+              } else if (metodo == 'transferencia') {
+                transferencia = monto;
+                if (last4.isNotEmpty) {
+                  transferenciaLast4 = '****$last4';
+                }
+              }
+            }
           }
         }
 
@@ -991,14 +1009,18 @@ class _VentasViewState extends State<VentasView> {
         final cantidadesStr = cantidades.join(' | ');
         final preciosStr = precios.join(' | ');
 
-        // Agregar fila al CSV
+        // Agregar fila al CSV con columnas separadas por método de pago
+        // Orden: Folio, Encargado, Fecha, Efectivo, Tarjeta, Transferencia,
+        //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Productos, Cantidades, Precios
         final row = [
           folio,
           encargado,
           fecha,
-          metodosPago,
-          montosPago,
-          tarjetaLast4.isEmpty ? '-' : '****$tarjetaLast4',
+          efectivo,
+          tarjeta,
+          transferencia,
+          tarjetaLast4,
+          transferenciaLast4,
           total,
           productosStr.isEmpty ? 'Sin productos' : productosStr,
           cantidadesStr.isEmpty ? '-' : cantidadesStr,
