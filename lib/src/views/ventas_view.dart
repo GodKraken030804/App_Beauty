@@ -258,6 +258,14 @@ class _VentasViewState extends State<VentasView> {
 
       final descuento = double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0;
 
+      // Agregar descuento al array de productos si existe
+      if (descuento > 0) {
+        productos.add({
+          'descuento': _asMoneyStr(descuento),
+          'tipo': 'descuento',
+        });
+      }
+
       final body = jsonEncode({
         'id_encargado': userId,
         'total_final': _asMoneyStr(_totalConDescuento),
@@ -895,9 +903,11 @@ class _VentasViewState extends State<VentasView> {
         'Tarjeta Ultimos 4',
         'Transferencia Ultimos 4',
         'Total',
+        'Descuento',
         'Productos',
         'Cantidades',
         'Precios Unitarios',
+        'Tipo (Venta/Regalo/Practica)',
       ];
       csvRows.add(headers.join(';')); // Usar punto y coma como delimitador
 
@@ -945,6 +955,20 @@ class _VentasViewState extends State<VentasView> {
 
         final total = (m['total_final'] ?? m['total'] ?? '0.00').toString();
 
+        // Descuento - manejar diferentes tipos de datos
+        dynamic descuentoRaw = m['descuento'];
+        String descuento = '0.00';
+        if (descuentoRaw != null) {
+          if (descuentoRaw is num) {
+            descuento = descuentoRaw.toStringAsFixed(2);
+          } else if (descuentoRaw is String && descuentoRaw.isNotEmpty) {
+            final parsedDescuento = double.tryParse(descuentoRaw);
+            descuento = parsedDescuento != null
+                ? parsedDescuento.toStringAsFixed(2)
+                : '0.00';
+          }
+        }
+
         // Productos - Ahora incluyen métodos de pago en el mismo array
         dynamic rawProds = m['productos'];
         List productosRaw;
@@ -965,6 +989,7 @@ class _VentasViewState extends State<VentasView> {
         final nombresProductos = <String>[];
         final cantidades = <String>[];
         final precios = <String>[];
+        final tipos = <String>[]; // Nuevo: tipo de transacción
 
         // Separar métodos de pago por tipo
         String efectivo = '-';
@@ -980,6 +1005,23 @@ class _VentasViewState extends State<VentasView> {
               nombresProductos.add((item['nombre'] ?? 'Producto').toString());
               cantidades.add((item['cantidad'] ?? '0').toString());
               precios.add((item['precio'] ?? '0.00').toString());
+
+              // Determinar el tipo: Regalo, Práctica o Venta
+              String tipo = 'Venta';
+              if (item['es_regalo'] == true) {
+                tipo = 'Regalo';
+              } else if (item['es_practica'] == true) {
+                tipo = 'Practica';
+              }
+              tipos.add(tipo);
+            }
+            // Si tiene 'tipo' == 'descuento', extraer el descuento
+            else if (item['tipo'] == 'descuento' && item['descuento'] != null) {
+              final descuentoItem = item['descuento'].toString();
+              final parsedDesc = double.tryParse(descuentoItem);
+              if (parsedDesc != null && parsedDesc > 0) {
+                descuento = parsedDesc.toStringAsFixed(2);
+              }
             }
             // Si tiene 'metodo', es un método de pago
             else if (item['metodo'] != null) {
@@ -1008,10 +1050,11 @@ class _VentasViewState extends State<VentasView> {
             nombresProductos.join(' | '); // Usar | en lugar de ;
         final cantidadesStr = cantidades.join(' | ');
         final preciosStr = precios.join(' | ');
+        final tiposStr = tipos.join(' | '); // Nuevo: tipos separados por |
 
         // Agregar fila al CSV con columnas separadas por método de pago
         // Orden: Folio, Encargado, Fecha, Efectivo, Tarjeta, Transferencia,
-        //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Productos, Cantidades, Precios
+        //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Descuento, Productos, Cantidades, Precios, Tipo
         final row = [
           folio,
           encargado,
@@ -1022,9 +1065,11 @@ class _VentasViewState extends State<VentasView> {
           tarjetaLast4,
           transferenciaLast4,
           total,
+          descuento,
           productosStr.isEmpty ? 'Sin productos' : productosStr,
           cantidadesStr.isEmpty ? '-' : cantidadesStr,
           preciosStr.isEmpty ? '-' : preciosStr,
+          tiposStr.isEmpty ? '-' : tiposStr, // Nueva columna
         ];
         csvRows.add(row.join(';')); // Usar punto y coma como delimitador
         appended++;
