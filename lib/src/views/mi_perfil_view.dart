@@ -9,7 +9,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'options_view.dart';
 import 'gastos_cursos_view.dart'; 
-import 'package:app_beauty/src/views/Login_View.dart';
+import 'Login_View.dart';
+import 'ingresos_cursos_view.dart'; // NUEVO
 
 
 class MiPerfilView extends StatefulWidget {
@@ -197,6 +198,56 @@ class _MiPerfilViewState extends State<MiPerfilView> {
                                 const SizedBox(width: 8),
                                 Text(
                                   'Gastos',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const IngresosCursosView()),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          elevation: 5,
+                          shadowColor: Colors.grey.withOpacity(0.5),
+                        ),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [gradientStart, gradientEnd],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Container(
+                            alignment: Alignment.center,
+                            constraints: const BoxConstraints(minHeight: 50),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.trending_up, size: 24),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Ingresos adicionales',
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
