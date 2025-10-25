@@ -48,6 +48,8 @@ class _VentasViewState extends State<VentasView> {
   final TextEditingController _last4Ctrl = TextEditingController();
   final TextEditingController _last4TransferenciaCtrl = TextEditingController();
   final TextEditingController _descuentoCtrl = TextEditingController();
+  final TextEditingController _descripcionDescuentoCtrl =
+      TextEditingController();
 
   // Tracking de artículos especiales
   final Set<int> _articulosRegalo = {}; // Índices de items marcados como regalo
@@ -64,6 +66,7 @@ class _VentasViewState extends State<VentasView> {
     _last4Ctrl.dispose();
     _last4TransferenciaCtrl.dispose();
     _descuentoCtrl.dispose();
+    _descripcionDescuentoCtrl.dispose();
     for (var ctrl in _montosControllers.values) {
       ctrl.dispose();
     }
@@ -257,12 +260,15 @@ class _VentasViewState extends State<VentasView> {
       }
 
       final descuento = double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0;
+      final descripcionDescuento = _descripcionDescuentoCtrl.text.trim();
 
       // Agregar descuento al array de productos si existe
       if (descuento > 0) {
         productos.add({
           'descuento': _asMoneyStr(descuento),
           'tipo': 'descuento',
+          if (descripcionDescuento.isNotEmpty)
+            'descripcion': descripcionDescuento,
         });
       }
 
@@ -270,6 +276,8 @@ class _VentasViewState extends State<VentasView> {
         'id_encargado': userId,
         'total_final': _asMoneyStr(_totalConDescuento),
         if (descuento > 0) 'descuento': _asMoneyStr(descuento),
+        if (descuento > 0 && descripcionDescuento.isNotEmpty)
+          'descripcion_descuento': descripcionDescuento,
         'productos': productos,
       });
 
@@ -402,8 +410,27 @@ class _VentasViewState extends State<VentasView> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Descuento',
-                              style: GoogleFonts.poppins(color: Colors.green)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Descuento',
+                                    style: GoogleFonts.poppins(
+                                        color: Colors.green)),
+                                if (_descripcionDescuentoCtrl.text
+                                    .trim()
+                                    .isNotEmpty)
+                                  Text(
+                                    '(${_descripcionDescuentoCtrl.text.trim()})',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade600,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                           Text('-\$${descuento.toStringAsFixed(2)}',
                               style: GoogleFonts.poppins(
                                   color: Colors.green,
@@ -468,6 +495,7 @@ class _VentasViewState extends State<VentasView> {
           _last4Ctrl.clear();
           _last4TransferenciaCtrl.clear();
           _descuentoCtrl.clear();
+          _descripcionDescuentoCtrl.clear();
           for (var ctrl in _montosControllers.values) {
             ctrl.clear();
           }
@@ -623,6 +651,18 @@ class _VentasViewState extends State<VentasView> {
   Future<void> _showHistorialSheet() async {
     await _fetchHistorial();
     if (!mounted) return;
+
+    // Calcular el total de todas las ventas
+    double totalVentas = 0.0;
+    for (final venta in _historial) {
+      if (venta is Map<String, dynamic>) {
+        final totalStr =
+            (venta['total_final'] ?? venta['total'] ?? '0.00').toString();
+        final total = double.tryParse(totalStr) ?? 0.0;
+        totalVentas += total;
+      }
+    }
+
     // Muestra historial en un bottom sheet
     // (Diseño simple para validar la API rápidamente)
     showModalBottomSheet(
@@ -653,6 +693,47 @@ class _VentasViewState extends State<VentasView> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    // Mostrar total de ventas
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            gradientStart.withOpacity(0.15),
+                            gradientEnd.withOpacity(0.15)
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: gradientStart.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.monetization_on,
+                                  color: gradientEnd, size: 24),
+                              const SizedBox(width: 8),
+                              Text('Total de Ventas:',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade800,
+                                  )),
+                            ],
+                          ),
+                          Text('\$${totalVentas.toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: gradientEnd,
+                              )),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     if (_loadingHistorial)
                       const Center(
                           child: Padding(
@@ -904,6 +985,7 @@ class _VentasViewState extends State<VentasView> {
         'Transferencia Ultimos 4',
         'Total',
         'Descuento',
+        'Descripcion Descuento',
         'Productos',
         'Cantidades',
         'Precios Unitarios',
@@ -912,6 +994,8 @@ class _VentasViewState extends State<VentasView> {
       csvRows.add(headers.join(';')); // Usar punto y coma como delimitador
 
       int appended = 0;
+      double totalGeneral = 0.0;
+
       for (final raw in _historial) {
         if (raw is! Map) continue;
         final m = raw as Map;
@@ -954,10 +1038,13 @@ class _VentasViewState extends State<VentasView> {
         }
 
         final total = (m['total_final'] ?? m['total'] ?? '0.00').toString();
+        final totalNum = double.tryParse(total) ?? 0.0;
+        totalGeneral += totalNum;
 
         // Descuento - manejar diferentes tipos de datos
         dynamic descuentoRaw = m['descuento'];
         String descuento = '0.00';
+        String descripcionDescuento = '';
         if (descuentoRaw != null) {
           if (descuentoRaw is num) {
             descuento = descuentoRaw.toStringAsFixed(2);
@@ -968,6 +1055,9 @@ class _VentasViewState extends State<VentasView> {
                 : '0.00';
           }
         }
+
+        // Obtener descripción del descuento
+        descripcionDescuento = (m['descripcion_descuento'] ?? '').toString();
 
         // Productos - Ahora incluyen métodos de pago en el mismo array
         dynamic rawProds = m['productos'];
@@ -1022,6 +1112,10 @@ class _VentasViewState extends State<VentasView> {
               if (parsedDesc != null && parsedDesc > 0) {
                 descuento = parsedDesc.toStringAsFixed(2);
               }
+              // Extraer descripción del descuento si existe
+              if (item['descripcion'] != null) {
+                descripcionDescuento = item['descripcion'].toString();
+              }
             }
             // Si tiene 'metodo', es un método de pago
             else if (item['metodo'] != null) {
@@ -1054,7 +1148,7 @@ class _VentasViewState extends State<VentasView> {
 
         // Agregar fila al CSV con columnas separadas por método de pago
         // Orden: Folio, Encargado, Fecha, Efectivo, Tarjeta, Transferencia,
-        //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Descuento, Productos, Cantidades, Precios, Tipo
+        //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Descuento, Descripcion Descuento, Productos, Cantidades, Precios, Tipo
         final row = [
           folio,
           encargado,
@@ -1066,6 +1160,7 @@ class _VentasViewState extends State<VentasView> {
           transferenciaLast4,
           total,
           descuento,
+          descripcionDescuento.isEmpty ? '-' : descripcionDescuento,
           productosStr.isEmpty ? 'Sin productos' : productosStr,
           cantidadesStr.isEmpty ? '-' : cantidadesStr,
           preciosStr.isEmpty ? '-' : preciosStr,
@@ -1073,6 +1168,29 @@ class _VentasViewState extends State<VentasView> {
         ];
         csvRows.add(row.join(';')); // Usar punto y coma como delimitador
         appended++;
+      }
+
+      // Agregar fila de totales al final
+      if (appended > 0) {
+        csvRows.add(''); // Línea en blanco para separar
+        final rowTotales = [
+          'TOTAL GENERAL',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '\$${totalGeneral.toStringAsFixed(2)}',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+        ];
+        csvRows.add(rowTotales.join(';'));
       }
 
       // Agregar BOM UTF-8 para compatibilidad con Excel
@@ -1834,44 +1952,80 @@ class _VentasViewState extends State<VentasView> {
                             ),
                           ],
                         ),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.local_offer,
-                                size: 20, color: Colors.green),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text('Descuento',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.green.shade700,
-                                  )),
-                            ),
-                            SizedBox(
-                              width: 120,
-                              child: TextField(
-                                controller: _descuentoCtrl,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                                decoration: InputDecoration(
-                                  prefixText: '\$',
-                                  hintText: '0.00',
-                                  hintStyle: GoogleFonts.poppins(
-                                      color: Colors.grey.shade400),
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 8),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                            Row(
+                              children: [
+                                const Icon(Icons.local_offer,
+                                    size: 20, color: Colors.green),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('Descuento',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green.shade700,
+                                      )),
+                                ),
+                                SizedBox(
+                                  width: 120,
+                                  child: TextField(
+                                    controller: _descuentoCtrl,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    decoration: InputDecoration(
+                                      prefixText: '\$',
+                                      hintText: '0.00',
+                                      hintStyle: GoogleFonts.poppins(
+                                          color: Colors.grey.shade400),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 8),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onChanged: (v) {
+                                      setState(() {}); // Actualizar total
+                                    },
                                   ),
                                 ),
-                                onChanged: (v) {
-                                  setState(() {}); // Actualizar total
-                                },
-                              ),
+                              ],
                             ),
+                            if ((double.tryParse(_descuentoCtrl.text.trim()) ??
+                                    0.0) >
+                                0) ...[
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _descripcionDescuentoCtrl,
+                                style: GoogleFonts.poppins(fontSize: 13),
+                                maxLines: 2,
+                                decoration: InputDecoration(
+                                  hintText: 'Motivo del descuento (opcional)',
+                                  hintStyle: GoogleFonts.poppins(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 12),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                        color: Colors.green.shade200),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                        color: Colors.green.shade400,
+                                        width: 1.5),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

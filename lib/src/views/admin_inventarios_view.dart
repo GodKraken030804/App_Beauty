@@ -27,15 +27,20 @@ class _AdminInventariosViewState extends State<AdminInventariosView> {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as List;
       return data
-          .where((u) => (u['usuario']?.toString().toLowerCase() == 'encargado'))
+          .where((u) {
+            final usuario = (u['usuario'] ?? '').toString().toLowerCase();
+            return usuario == 'encargado' || usuario == 'pedido';
+          })
           .map<Map<String, dynamic>>((u) {
-        final idRaw = u['id'];
-        final int id = idRaw is int
-            ? idRaw
-            : int.tryParse(idRaw?.toString() ?? '') ?? -1;
-        final String nombre = u['nombre']?.toString() ?? '';
-        return {'id': id, 'nombre': nombre};
-      }).where((e) => (e['id'] ?? -1) != -1 && (e['nombre'] as String).isNotEmpty)
+            final idRaw = u['id'];
+            final int id = idRaw is int
+                ? idRaw
+                : int.tryParse(idRaw?.toString() ?? '') ?? -1;
+            final String nombre = u['nombre']?.toString() ?? '';
+            return {'id': id, 'nombre': nombre};
+          })
+          .where((e) =>
+              (e['id'] ?? -1) != -1 && (e['nombre'] as String).isNotEmpty)
           .toList();
     }
     return [];
@@ -95,8 +100,8 @@ class _AdminInventariosViewState extends State<AdminInventariosView> {
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
-                    child: Text('No hay encargados',
-                        style: GoogleFonts.poppins()),
+                    child:
+                        Text('No hay encargados', style: GoogleFonts.poppins()),
                   );
                 }
 
@@ -219,7 +224,8 @@ class _EncargadoTileState extends State<_EncargadoTile> {
             ),
             borderRadius: BorderRadius.circular(22),
             boxShadow: const [
-              BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(2, 4)),
+              BoxShadow(
+                  color: Colors.black26, blurRadius: 8, offset: Offset(2, 4)),
             ],
           ),
           child: Container(

@@ -16,16 +16,14 @@ class Ingreso {
   final String nombre;
   final double monto;
   final String descripcion;
-  final String metodo;
-  final String? last4; // 4 dígitos del método cuando aplique
+  final Map<String, dynamic> metodosPago; // Mapa con método -> {monto, last4}
   final DateTime fecha;
 
   Ingreso({
     required this.nombre,
     required this.monto,
     required this.descripcion,
-    required this.metodo,
-    this.last4,
+    required this.metodosPago,
     required this.fecha,
   });
 
@@ -33,19 +31,36 @@ class Ingreso {
         'nombre': nombre,
         'monto': monto,
         'descripcion': descripcion,
-        'metodo': metodo,
-    'last4': last4,
+        'metodosPago': metodosPago,
         'fecha': fecha.toIso8601String(),
       };
 
-  factory Ingreso.fromJson(Map<String, dynamic> json) => Ingreso(
-        nombre: json['nombre'],
-        monto: (json['monto'] as num).toDouble(),
-        descripcion: json['descripcion'],
-        metodo: json['metodo'],
-    last4: json['last4'] as String?,
-        fecha: DateTime.parse(json['fecha']),
-      );
+  factory Ingreso.fromJson(Map<String, dynamic> json) {
+    // Compatibilidad hacia atrás con el formato antiguo
+    Map<String, dynamic> metodosPago;
+    if (json.containsKey('metodosPago')) {
+      metodosPago = Map<String, dynamic>.from(json['metodosPago']);
+    } else {
+      // Formato antiguo: convertir metodo y last4 a nuevo formato
+      final metodo = json['metodo'] as String;
+      final last4 = json['last4'] as String?;
+      final monto = (json['monto'] as num).toDouble();
+      metodosPago = {
+        metodo: {
+          'monto': monto,
+          if (last4 != null && last4.isNotEmpty) 'last4': last4,
+        }
+      };
+    }
+
+    return Ingreso(
+      nombre: json['nombre'],
+      monto: (json['monto'] as num).toDouble(),
+      descripcion: json['descripcion'],
+      metodosPago: metodosPago,
+      fecha: DateTime.parse(json['fecha']),
+    );
+  }
 }
 
 class IngresosView extends StatefulWidget {
@@ -57,7 +72,8 @@ class IngresosView extends StatefulWidget {
   State<IngresosView> createState() => _IngresosViewState();
 }
 
-class _IngresosViewState extends State<IngresosView> with TickerProviderStateMixin {
+class _IngresosViewState extends State<IngresosView>
+    with TickerProviderStateMixin {
   List<Ingreso> _ingresos = [];
   double _total = 0.0;
   final Color gradientStart = const Color(0xFFF26AB6);
@@ -167,10 +183,15 @@ class _IngresosViewState extends State<IngresosView> with TickerProviderStateMix
 
   void _showAddIngresoDialog() {
     final nombreController = TextEditingController();
-    final montoController = TextEditingController();
     final descripcionController = TextEditingController();
-  String metodo = 'Efectivo';
-  final last4Controller = TextEditingController();
+    // Controladores para métodos de pago múltiples
+    final montosControllers = {
+      'Efectivo': TextEditingController(),
+      'Tarjeta': TextEditingController(),
+      'Transferencia': TextEditingController(),
+    };
+    final last4Ctrl = TextEditingController();
+    final last4TransferenciaCtrl = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -246,43 +267,6 @@ class _IngresosViewState extends State<IngresosView> with TickerProviderStateMix
                           textInputAction: TextInputAction.next,
                         ),
                         const SizedBox(height: 16),
-                        // Monto
-                        TextField(
-                          controller: montoController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true, signed: false),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.,]')),
-                          ],
-                          decoration: InputDecoration(
-                            labelText: 'Monto',
-                            hintText: 'Ej. 250.00',
-                            labelStyle: GoogleFonts.poppins(
-                                color: Colors.grey[600], fontSize: 14),
-                            hintStyle: GoogleFonts.poppins(
-                                color: Colors.grey[400], fontSize: 14),
-                            prefixIcon: const Icon(Icons.attach_money,
-                                color: Color(0xFFF26AB6)),
-                            filled: true,
-                            fillColor: Colors.white,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  BorderSide(color: gradientStart, width: 1.5),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                vertical: 14, horizontal: 12),
-                          ),
-                          style: GoogleFonts.poppins(fontSize: 15),
-                          textInputAction: TextInputAction.next,
-                        ),
-                        const SizedBox(height: 16),
                         // Descripción
                         TextField(
                           controller: descripcionController,
@@ -314,166 +298,249 @@ class _IngresosViewState extends State<IngresosView> with TickerProviderStateMix
                           maxLines: 2,
                         ),
                         const SizedBox(height: 16),
-                        Text('Método de ingreso',
+                        // Métodos de Pago Múltiples
+                        Text('Métodos de Pago',
                             style: GoogleFonts.poppins(
                                 color: Colors.grey[700],
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14)),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () => setLocalState(
-                                    () => metodo = 'Efectivo'),
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: metodo == 'Efectivo'
-                                        ? gradientStart.withOpacity(0.12)
-                                        : Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: metodo == 'Efectivo'
-                                            ? gradientStart
-                                            : Colors.grey[300]!),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.payments,
-                                          color: metodo == 'Efectivo'
-                                              ? gradientStart
-                                              : Colors.grey[600]),
-                                      const SizedBox(height: 6),
-                                      Text('Efectivo',
-                                          style: GoogleFonts.poppins(
-                                              fontWeight: FontWeight.w600,
-                                              color: metodo == 'Efectivo'
-                                                  ? gradientStart
-                                                  : Colors.grey[700])),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () => setLocalState(() {
-                                  metodo = 'Tarjeta';
-                                }),
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: metodo == 'Tarjeta'
-                                        ? gradientEnd.withOpacity(0.12)
-                                        : Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: metodo == 'Tarjeta'
-                                            ? gradientEnd
-                                            : Colors.grey[300]!),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.credit_card,
-                                          color: metodo == 'Tarjeta'
-                                              ? gradientEnd
-                                              : Colors.grey[600]),
-                                      const SizedBox(height: 6),
-                                      Text('Tarjeta',
-                                          style: GoogleFonts.poppins(
-                                              fontWeight: FontWeight.w600,
-                                              color: metodo == 'Tarjeta'
-                                                  ? gradientEnd
-                                                  : Colors.grey[700])),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () => setLocalState(() {
-                                  metodo = 'Transferencia';
-                                }),
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: metodo == 'Transferencia'
-                                        ? gradientStart.withOpacity(0.12)
-                                        : Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: metodo == 'Transferencia'
-                                            ? gradientStart
-                                            : Colors.grey[300]!),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.swap_horiz,
-                                          color: metodo == 'Transferencia'
-                                              ? gradientStart
-                                              : Colors.grey[600]),
-                                      const SizedBox(height: 6),
-                                      Text('Transferencia',
-                                          style: GoogleFonts.poppins(
-                                              fontWeight: FontWeight.w600,
-                                              color:
-                                                  metodo == 'Transferencia'
-                                                      ? gradientStart
-                                                      : Colors.grey[700])),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (metodo == 'Tarjeta' || metodo == 'Transferencia')
-                          TextField(
-                            controller: last4Controller,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
-                            ],
-                            decoration: InputDecoration(
-                              labelText: 'Últimos 4 dígitos',
-                              hintText: 'Ej. 1234',
-                              labelStyle: GoogleFonts.poppins(
-                                  color: Colors.grey[600], fontSize: 14),
-                              hintStyle: GoogleFonts.poppins(
-                                  color: Colors.grey[400], fontSize: 14),
-                              prefixIcon: const Icon(Icons.confirmation_number,
-                                  color: Color(0xFFF26AB6)),
-                              filled: true,
-                              fillColor: Colors.white,
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: gradientStart, width: 1.5),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 14, horizontal: 12),
-                            ),
-                            style: GoogleFonts.poppins(fontSize: 15),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
+                          child: Column(
+                            children: [
+                              // Efectivo
+                              Row(
+                                children: [
+                                  const Icon(Icons.attach_money,
+                                      size: 20, color: Color(0xFFF26AB6)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text('Efectivo',
+                                        style:
+                                            GoogleFonts.poppins(fontSize: 14)),
+                                  ),
+                                  SizedBox(
+                                    width: 120,
+                                    child: TextField(
+                                      controller: montosControllers['Efectivo'],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                      decoration: InputDecoration(
+                                        prefixText: '\$',
+                                        hintText: '0.00',
+                                        hintStyle: GoogleFonts.poppins(
+                                            color: Colors.grey.shade400),
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Tarjeta
+                              Row(
+                                children: [
+                                  const Icon(Icons.credit_card,
+                                      size: 20, color: Color(0xFFF26AB6)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Tarjeta',
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 14)),
+                                        if ((double.tryParse(montosControllers[
+                                                        'Tarjeta']!
+                                                    .text
+                                                    .trim()) ??
+                                                0.0) >
+                                            0)
+                                          SizedBox(
+                                            width: 100,
+                                            child: TextField(
+                                              controller: last4Ctrl,
+                                              maxLength: 4,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              style: GoogleFonts.poppins(
+                                                  fontSize: 12),
+                                              decoration: InputDecoration(
+                                                counterText: '',
+                                                hintText: 'Últimos 4',
+                                                hintStyle: GoogleFonts.poppins(
+                                                    fontSize: 11,
+                                                    color:
+                                                        Colors.grey.shade400),
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 4),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                              ),
+                                              onChanged: (v) {
+                                                if (v.length > 4) {
+                                                  last4Ctrl.text =
+                                                      v.substring(0, 4);
+                                                  last4Ctrl.selection =
+                                                      TextSelection.fromPosition(
+                                                          const TextPosition(
+                                                              offset: 4));
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 120,
+                                    child: TextField(
+                                      controller: montosControllers['Tarjeta'],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                      decoration: InputDecoration(
+                                        prefixText: '\$',
+                                        hintText: '0.00',
+                                        hintStyle: GoogleFonts.poppins(
+                                            color: Colors.grey.shade400),
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      onChanged: (v) {
+                                        setLocalState(
+                                            () {}); // Actualizar UI para mostrar campo de últimos 4
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Transferencia
+                              Row(
+                                children: [
+                                  const Icon(Icons.swap_horiz,
+                                      size: 20, color: Color(0xFFF26AB6)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Transferencia',
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 14)),
+                                        if ((double.tryParse(montosControllers[
+                                                        'Transferencia']!
+                                                    .text
+                                                    .trim()) ??
+                                                0.0) >
+                                            0)
+                                          SizedBox(
+                                            width: 100,
+                                            child: TextField(
+                                              controller:
+                                                  last4TransferenciaCtrl,
+                                              maxLength: 4,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              style: GoogleFonts.poppins(
+                                                  fontSize: 12),
+                                              decoration: InputDecoration(
+                                                counterText: '',
+                                                hintText: 'Últimos 4',
+                                                hintStyle: GoogleFonts.poppins(
+                                                    fontSize: 11,
+                                                    color:
+                                                        Colors.grey.shade400),
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 4),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                              ),
+                                              onChanged: (v) {
+                                                if (v.length > 4) {
+                                                  last4TransferenciaCtrl.text =
+                                                      v.substring(0, 4);
+                                                  last4TransferenciaCtrl
+                                                          .selection =
+                                                      TextSelection.fromPosition(
+                                                          const TextPosition(
+                                                              offset: 4));
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 120,
+                                    child: TextField(
+                                      controller:
+                                          montosControllers['Transferencia'],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                      decoration: InputDecoration(
+                                        prefixText: '\$',
+                                        hintText: '0.00',
+                                        hintStyle: GoogleFonts.poppins(
+                                            color: Colors.grey.shade400),
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      onChanged: (v) {
+                                        setLocalState(
+                                            () {}); // Actualizar UI para mostrar campo de últimos 4
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         Row(
                           children: [
@@ -520,39 +587,77 @@ class _IngresosViewState extends State<IngresosView> with TickerProviderStateMix
                                 child: TextButton(
                                   onPressed: () {
                                     final nombre = nombreController.text.trim();
-                                    final montoStr =
-                                        montoController.text.trim();
                                     final descripcion =
                                         descripcionController.text.trim();
-                                    final last4 = last4Controller.text.trim();
 
-                                    if (nombre.isEmpty ||
-                                        montoStr.isEmpty ||
-                                        descripcion.isEmpty) {
+                                    if (nombre.isEmpty || descripcion.isEmpty) {
                                       return;
                                     }
 
-                                    final monto = double.tryParse(
-                                            montoStr.replaceAll(',', '.')) ??
-                                        0.0;
-                                    if (monto <= 0) {
-                                      return;
+                                    // Recopilar métodos de pago activos
+                                    final metodosPago = <String, dynamic>{};
+                                    double montoTotal = 0.0;
+
+                                    for (var metodo in montosControllers.keys) {
+                                      final montoStr =
+                                          montosControllers[metodo]!
+                                              .text
+                                              .trim();
+                                      if (montoStr.isNotEmpty) {
+                                        final monto = double.tryParse(montoStr
+                                                .replaceAll(',', '.')) ??
+                                            0.0;
+                                        if (monto > 0) {
+                                          final metodoPagoData =
+                                              <String, dynamic>{'monto': monto};
+
+                                          // Agregar last4 si es Tarjeta o Transferencia
+                                          if (metodo == 'Tarjeta') {
+                                            final last4 = last4Ctrl.text.trim();
+                                            if (last4.length == 4) {
+                                              metodoPagoData['last4'] = last4;
+                                            }
+                                          } else if (metodo ==
+                                              'Transferencia') {
+                                            final last4 = last4TransferenciaCtrl
+                                                .text
+                                                .trim();
+                                            if (last4.length == 4) {
+                                              metodoPagoData['last4'] = last4;
+                                            }
+                                          }
+
+                                          metodosPago[metodo] = metodoPagoData;
+                                          montoTotal += monto;
+                                        }
+                                      }
                                     }
 
-                                    if ((metodo == 'Tarjeta' || metodo == 'Transferencia') && last4.length != 4) {
+                                    if (metodosPago.isEmpty ||
+                                        montoTotal <= 0) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Debes ingresar al menos un método de pago con monto válido',
+                                            style: GoogleFonts.poppins(),
+                                          ),
+                                          backgroundColor:
+                                              Colors.orange.shade400,
+                                        ),
+                                      );
                                       return;
                                     }
 
                                     setState(() {
                                       _ingresos.add(Ingreso(
                                         nombre: nombre,
-                                        monto: monto,
+                                        monto: montoTotal,
                                         descripcion: descripcion,
-                                        metodo: metodo,
-                                        last4: (metodo == 'Tarjeta' || metodo == 'Transferencia') ? last4 : null,
+                                        metodosPago: metodosPago,
                                         fecha: DateTime.now(),
                                       ));
-                                      _total += monto;
+                                      _total += montoTotal;
                                     });
                                     _saveIngresos();
                                     Navigator.pop(context);
@@ -628,20 +733,36 @@ class _IngresosViewState extends State<IngresosView> with TickerProviderStateMix
     final header = [
       'Fecha',
       'Nombre',
-      'Monto',
+      'Monto Total',
       'Descripción',
-      'Método',
-      'Últimos 4'
+      'Efectivo',
+      'Tarjeta',
+      'Transferencia',
+      'Tarjeta (Últimos 4)',
+      'Transferencia (Últimos 4)',
     ];
     final lines = <String>[header.map(escapeCsv).join(delim)];
     for (var i in _ingresos) {
+      final efectivoMonto =
+          i.metodosPago['Efectivo']?['monto']?.toString() ?? '0.00';
+      final tarjetaMonto =
+          i.metodosPago['Tarjeta']?['monto']?.toString() ?? '0.00';
+      final tarjetaLast4 = i.metodosPago['Tarjeta']?['last4']?.toString() ?? '';
+      final transferenciaMonto =
+          i.metodosPago['Transferencia']?['monto']?.toString() ?? '0.00';
+      final transferenciaLast4 =
+          i.metodosPago['Transferencia']?['last4']?.toString() ?? '';
+
       final row = [
         i.fecha.toIso8601String(),
         i.nombre,
         i.monto.toString(),
         i.descripcion,
-        i.metodo,
-        i.last4 ?? '',
+        efectivoMonto,
+        tarjetaMonto,
+        transferenciaMonto,
+        tarjetaLast4,
+        transferenciaLast4,
       ];
       lines.add(row.map((e) => escapeCsv(e.toString())).join(delim));
     }
@@ -989,20 +1110,41 @@ class _IngresosViewState extends State<IngresosView> with TickerProviderStateMix
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Monto: \$${i.monto.toStringAsFixed(2)}',
+                                    'Monto Total: \$${i.monto.toStringAsFixed(2)}',
                                     style: GoogleFonts.poppins(
-                                        fontSize: 14, color: Colors.black87),
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                   Text(
                                     'Descripción: ${i.descripcion}',
                                     style: GoogleFonts.poppins(
                                         fontSize: 14, color: Colors.black87),
                                   ),
-                                  Text(
-                                    'Método: ${i.metodo}${(i.last4 != null && i.last4!.isNotEmpty) ? ' (****${i.last4})' : ''}',
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 14, color: Colors.black87),
-                                  ),
+                                  // Mostrar todos los métodos de pago
+                                  ...i.metodosPago.entries.map((entry) {
+                                    final metodo = entry.key;
+                                    final info =
+                                        entry.value as Map<String, dynamic>;
+                                    final monto = info['monto'];
+                                    final last4 = info['last4'];
+                                    String metodoTexto =
+                                        '$metodo: \$${monto.toStringAsFixed(2)}';
+                                    if (last4 != null &&
+                                        last4.toString().isNotEmpty) {
+                                      metodoTexto += ' (****$last4)';
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        metodoTexto,
+                                        style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            color: Colors.grey[700]),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  const SizedBox(height: 4),
                                   Text(
                                     'Fecha: ${i.fecha.toLocal().toString().split('.')[0]}',
                                     style: GoogleFonts.poppins(

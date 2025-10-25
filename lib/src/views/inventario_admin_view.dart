@@ -326,7 +326,11 @@ class _InventarioViewState extends State<InventarioView> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          encargados = data.where((u) => u['usuario'] == 'encargado').toList();
+          // Incluir tanto encargados como usuarios tipo "Pedido"
+          encargados = data.where((u) {
+            final usuario = (u['usuario'] ?? '').toString().toLowerCase();
+            return usuario == 'encargado' || usuario == 'pedido';
+          }).toList();
         });
         debugPrint(
             encargados.toString()); // Imprime en consola la variable encargados
