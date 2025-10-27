@@ -22,6 +22,7 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
   final _nombreController = TextEditingController();
   final _cantidadController = TextEditingController();
   final _precioController = TextEditingController();
+  final _precioUnitarioController = TextEditingController();
   Uint8List? _imagenBytes;
   String? _imagenNombre;
 
@@ -71,6 +72,7 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
       request.fields['nombre'] = _nombreController.text.trim();
       request.fields['cantidad'] = _cantidadController.text.trim();
       request.fields['precio'] = _precioController.text.trim();
+      request.fields['precioUnitario'] = _precioUnitarioController.text.trim();
 
       // Determinar MIME type por extensión
       final filename = _imagenNombre!;
@@ -105,7 +107,7 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
 
       debugPrint('POST $url');
       debugPrint(
-          'Campos: nombre=${request.fields['nombre']}, cantidad=${request.fields['cantidad']}, precio=${request.fields['precio']}');
+          'Campos: nombre=${request.fields['nombre']}, cantidad=${request.fields['cantidad']}, precio=${request.fields['precio']}, precioUnitario=${request.fields['precioUnitario']}');
       debugPrint(
           'Archivo: $filename (${_imagenBytes!.lengthInBytes} bytes), contentType=$mediaType');
 
@@ -134,6 +136,7 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
       _nombreController.clear();
       _cantidadController.clear();
       _precioController.clear();
+      _precioUnitarioController.clear();
       _imagenBytes = null;
       _imagenNombre = null;
     });
@@ -159,6 +162,7 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
     _nombreController.dispose();
     _cantidadController.dispose();
     _precioController.dispose();
+    _precioUnitarioController.dispose();
     super.dispose();
   }
 
@@ -247,6 +251,13 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
                         _precioController,
                         'Precio',
                         icon: Icons.attach_money,
+                        isDecimal: true,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildTextField(
+                        _precioUnitarioController,
+                        'Precio Unitario',
+                        icon: Icons.monetization_on,
                         isDecimal: true,
                       ),
                       const SizedBox(height: 20),

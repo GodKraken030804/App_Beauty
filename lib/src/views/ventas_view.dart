@@ -30,6 +30,8 @@ class _VentasViewState extends State<VentasView> {
   String? _error;
   final List<Map<String, dynamic>> _carrito = [];
   final Map<int, String> _productoNombres = {};
+  final Map<int, double> _productoPreciosUnitarios =
+      {}; // Almacenar precios unitarios
   // Historial de ventas
   final List<dynamic> _historial = [];
   bool _loadingHistorial = false;
@@ -107,6 +109,7 @@ class _VentasViewState extends State<VentasView> {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final data = jsonDecode(res.body);
         _productoNombres.clear();
+        _productoPreciosUnitarios.clear();
         if (data is List) {
           for (final el in data) {
             if (el is Map<String, dynamic>) {
@@ -114,6 +117,13 @@ class _VentasViewState extends State<VentasView> {
               final nombre = (el['nombre'] ?? '').toString();
               if (id != null && nombre.isNotEmpty) {
                 _productoNombres[id] = nombre;
+                // Guardar precio unitario
+                final precioUnitario = el['precioUnitario'];
+                if (precioUnitario != null) {
+                  _productoPreciosUnitarios[id] = precioUnitario is num
+                      ? precioUnitario.toDouble()
+                      : double.tryParse(precioUnitario.toString()) ?? 0.0;
+                }
               }
             }
           }
@@ -281,6 +291,9 @@ class _VentasViewState extends State<VentasView> {
         'productos': productos,
       });
 
+      // Debug: Imprimir el JSON que se enviará
+      debugPrint('[POST Venta] Body JSON: $body');
+
       // Usar directamente el endpoint que sí responde OK (API_EMPRESA)
       final headers = {
         'Content-Type': 'application/json',
@@ -291,6 +304,9 @@ class _VentasViewState extends State<VentasView> {
       final uri = Uri.parse(baseEmpresa).resolve('api/v1/venta');
       debugPrint('[POST Venta] ${uri.toString()}');
       final res = await http.post(uri, headers: headers, body: body);
+
+      debugPrint('[POST Venta] Response status: ${res.statusCode}');
+      debugPrint('[POST Venta] Response body: ${res.body}');
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         try {
@@ -989,12 +1005,41 @@ class _VentasViewState extends State<VentasView> {
         'Productos',
         'Cantidades',
         'Precios Unitarios',
+        'Precios Venta',
+        'Ganancia por Producto',
+        'Ganancia Total',
         'Tipo (Venta/Regalo/Practica)',
       ];
       csvRows.add(headers.join(';')); // Usar punto y coma como delimitador
 
+      // Obtener precios unitarios de productos desde el API
+      final Map<int, double> preciosUnitarios = {};
+      try {
+        final uri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/producto');
+        final res = await http.get(uri);
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          final data = jsonDecode(res.body);
+          if (data is List) {
+            for (final el in data) {
+              if (el is Map<String, dynamic>) {
+                final id = _asInt(el['id']);
+                final precioUnitario = el['precioUnitario'];
+                if (id != null && precioUnitario != null) {
+                  preciosUnitarios[id] = precioUnitario is num
+                      ? precioUnitario.toDouble()
+                      : double.tryParse(precioUnitario.toString()) ?? 0.0;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error al obtener precios unitarios: $e');
+      }
+
       int appended = 0;
       double totalGeneral = 0.0;
+      double gananciaGeneralTotal = 0.0;
 
       for (final raw in _historial) {
         if (raw is! Map) continue;
@@ -1079,7 +1124,11 @@ class _VentasViewState extends State<VentasView> {
         final nombresProductos = <String>[];
         final cantidades = <String>[];
         final precios = <String>[];
+        final preciosUnitariosStr = <String>[];
+        final gananciasStr = <String>[];
         final tipos = <String>[]; // Nuevo: tipo de transacción
+
+        double gananciaVenta = 0.0;
 
         // Separar métodos de pago por tipo
         String efectivo = '-';
@@ -1093,15 +1142,39 @@ class _VentasViewState extends State<VentasView> {
             // Si tiene 'nombre', es un producto
             if (item['nombre'] != null) {
               nombresProductos.add((item['nombre'] ?? 'Producto').toString());
-              cantidades.add((item['cantidad'] ?? '0').toString());
-              precios.add((item['precio'] ?? '0.00').toString());
+              final cantidadItem =
+                  int.tryParse((item['cantidad'] ?? '0').toString()) ?? 0;
+              cantidades.add(cantidadItem.toString());
+              final precioVenta =
+                  double.tryParse((item['precio'] ?? '0.00').toString()) ?? 0.0;
+              precios.add(precioVenta.toStringAsFixed(2));
+
+              // Obtener ID del producto para buscar precio unitario
+              final idProducto = _asInt(item['id_producto'] ??
+                  item['idproduc'] ??
+                  item['producto_id']);
+              final precioUnitario = (idProducto != null &&
+                      preciosUnitarios.containsKey(idProducto))
+                  ? preciosUnitarios[idProducto]!
+                  : 0.0;
+              preciosUnitariosStr.add(precioUnitario.toStringAsFixed(2));
+
+              // Calcular ganancia por producto (precio venta - precio unitario) * cantidad
+              final gananciaPorProducto =
+                  (precioVenta - precioUnitario) * cantidadItem;
+              gananciasStr.add(gananciaPorProducto.toStringAsFixed(2));
 
               // Determinar el tipo: Regalo, Práctica o Venta
               String tipo = 'Venta';
               if (item['es_regalo'] == true) {
                 tipo = 'Regalo';
+                // Los regalos no generan ganancia
               } else if (item['es_practica'] == true) {
                 tipo = 'Practica';
+                // Las prácticas no generan ganancia
+              } else {
+                // Solo sumar ganancia si es venta real
+                gananciaVenta += gananciaPorProducto;
               }
               tipos.add(tipo);
             }
@@ -1144,11 +1217,17 @@ class _VentasViewState extends State<VentasView> {
             nombresProductos.join(' | '); // Usar | en lugar de ;
         final cantidadesStr = cantidades.join(' | ');
         final preciosStr = precios.join(' | ');
+        final preciosUnitariosStrJoined = preciosUnitariosStr.join(' | ');
+        final gananciasStrJoined = gananciasStr.join(' | ');
         final tiposStr = tipos.join(' | '); // Nuevo: tipos separados por |
+
+        // Sumar ganancia de esta venta al total general
+        gananciaGeneralTotal += gananciaVenta;
 
         // Agregar fila al CSV con columnas separadas por método de pago
         // Orden: Folio, Encargado, Fecha, Efectivo, Tarjeta, Transferencia,
-        //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Descuento, Descripcion Descuento, Productos, Cantidades, Precios, Tipo
+        //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Descuento, Descripcion Descuento,
+        //        Productos, Cantidades, Precios Unitarios, Precios Venta, Ganancia por Producto, Ganancia Total, Tipo
         final row = [
           folio,
           encargado,
@@ -1163,7 +1242,10 @@ class _VentasViewState extends State<VentasView> {
           descripcionDescuento.isEmpty ? '-' : descripcionDescuento,
           productosStr.isEmpty ? 'Sin productos' : productosStr,
           cantidadesStr.isEmpty ? '-' : cantidadesStr,
+          preciosUnitariosStrJoined.isEmpty ? '-' : preciosUnitariosStrJoined,
           preciosStr.isEmpty ? '-' : preciosStr,
+          gananciasStrJoined.isEmpty ? '-' : gananciasStrJoined,
+          gananciaVenta.toStringAsFixed(2),
           tiposStr.isEmpty ? '-' : tiposStr, // Nueva columna
         ];
         csvRows.add(row.join(';')); // Usar punto y coma como delimitador
@@ -1188,6 +1270,9 @@ class _VentasViewState extends State<VentasView> {
           '',
           '',
           '',
+          '',
+          '',
+          '\$${gananciaGeneralTotal.toStringAsFixed(2)}', // Ganancia total
           '',
         ];
         csvRows.add(rowTotales.join(';'));

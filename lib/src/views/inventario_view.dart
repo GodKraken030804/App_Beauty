@@ -323,6 +323,10 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
       nombre: nombre.toString(),
       imagenUrl: imagenUrl,
       cantidad: cantidadInt,
+      precio: producto['precio'] != null ? '${producto['precio']}' : null,
+      precioUnitario: producto['precioUnitario'] != null
+          ? '${producto['precioUnitario']}'
+          : null,
       isFavorite: isFav,
       onToggleFavorite: () => _toggleFavorite(id),
       gradientColors: gradientColors,
@@ -816,6 +820,8 @@ class _ProductTile extends StatefulWidget {
   final String nombre;
   final String imagenUrl;
   final int cantidad;
+  final String? precio;
+  final String? precioUnitario;
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
   final List<Color> gradientColors;
@@ -828,6 +834,8 @@ class _ProductTile extends StatefulWidget {
     required this.nombre,
     required this.imagenUrl,
     required this.cantidad,
+    this.precio,
+    this.precioUnitario,
     required this.isFavorite,
     required this.onToggleFavorite,
     required this.gradientColors,
@@ -1004,6 +1012,62 @@ class _ProductTileState extends State<_ProductTile> {
                                 ),
                               ),
                             ),
+                            if (widget.precio != null) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.attach_money,
+                                        color: Colors.purple, size: 16),
+                                    Text(
+                                      widget.precio!,
+                                      style: const TextStyle(
+                                        color: Colors.purple,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            // Precio unitario oculto pero existe en el modelo
+                            // if (widget.precioUnitario != null) ...[
+                            //   const SizedBox(height: 4),
+                            //   Container(
+                            //     padding: const EdgeInsets.symmetric(
+                            //         horizontal: 10, vertical: 4),
+                            //     decoration: BoxDecoration(
+                            //       color: Colors.pink.shade50,
+                            //       borderRadius: BorderRadius.circular(8),
+                            //     ),
+                            //     child: Row(
+                            //       mainAxisSize: MainAxisSize.min,
+                            //       mainAxisAlignment: MainAxisAlignment.center,
+                            //       children: [
+                            //         const Icon(Icons.monetization_on,
+                            //             color: Color(0xFFF26AB6), size: 14),
+                            //         const SizedBox(width: 4),
+                            //         Text(
+                            //           'Unit: ${widget.precioUnitario}',
+                            //           style: const TextStyle(
+                            //             color: Color(0xFFF26AB6),
+                            //             fontWeight: FontWeight.w600,
+                            //             fontSize: 12,
+                            //           ),
+                            //         ),
+                            //       ],
+                            //     ),
+                            //   ),
+                            // ],
                           ],
                         ),
                       ),
