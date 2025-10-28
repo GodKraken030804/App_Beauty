@@ -208,7 +208,7 @@ class _RegistrarAlumnasNuevasViewState
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.white,
-                            labelText: 'Anticipo',
+                            labelText: 'Total de pago',
                             labelStyle:
                                 GoogleFonts.poppins(color: Colors.grey[600]),
                             prefixIcon: const Icon(Icons.attach_money,
