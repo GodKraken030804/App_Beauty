@@ -36,9 +36,14 @@ class _SplashViewState extends State<SplashView> {
         }
 
         final payload = JwtDecoder.decode(token);
-        final rol = payload['rol'] ?? 'default';
+        // Obtener el rol del token (puede venir como 'rol' o 'usuario')
+        final rol = (payload['rol'] ?? payload['usuario'] ?? 'default')
+            .toString()
+            .toLowerCase();
         if (rol == 'admin') {
           Navigator.pushReplacementNamed(context, '/administrador');
+        } else if (rol == 'pedido') {
+          Navigator.pushReplacementNamed(context, '/pedido');
         } else {
           Navigator.pushReplacementNamed(context, '/options');
         }

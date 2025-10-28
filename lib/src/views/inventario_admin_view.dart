@@ -326,7 +326,11 @@ class _InventarioViewState extends State<InventarioView> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          encargados = data.where((u) => u['usuario'] == 'encargado').toList();
+          // Incluir tanto encargados como usuarios tipo "Pedido"
+          encargados = data.where((u) {
+            final usuario = (u['usuario'] ?? '').toString().toLowerCase();
+            return usuario == 'encargado' || usuario == 'pedido';
+          }).toList();
         });
         debugPrint(
             encargados.toString()); // Imprime en consola la variable encargados
@@ -1032,6 +1036,10 @@ class _InventarioViewState extends State<InventarioView> {
                                 ? cantidad.toInt()
                                 : int.tryParse('$cantidad') ?? 0,
                             precioTexto: '$precio',
+                            precioUnitarioTexto:
+                                producto['precioUnitario'] != null
+                                    ? '${producto['precioUnitario']}'
+                                    : null,
                             gradientColors: gradientColors,
                             onTap: () => _abrirDialogoProducto(producto),
                             onEdit: () => _mostrarEditarProducto(producto),
@@ -1057,6 +1065,7 @@ class _ProductTileAdmin extends StatefulWidget {
   final String imagenUrl;
   final int cantidad;
   final String precioTexto;
+  final String? precioUnitarioTexto;
   final List<Color> gradientColors;
   final VoidCallback onTap;
   final VoidCallback onEdit;
@@ -1068,6 +1077,7 @@ class _ProductTileAdmin extends StatefulWidget {
     required this.imagenUrl,
     required this.cantidad,
     required this.precioTexto,
+    this.precioUnitarioTexto,
     required this.gradientColors,
     required this.onTap,
     required this.onEdit,
@@ -1240,6 +1250,34 @@ class _ProductTileAdminState extends State<_ProductTileAdmin> {
                               ],
                             ),
                           ),
+                          if (widget.precioUnitarioTexto != null) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.pink.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.monetization_on,
+                                      color: Color(0xFFF26AB6), size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Unit: ${widget.precioUnitarioTexto}',
+                                    style: const TextStyle(
+                                      color: Color(0xFFF26AB6),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

@@ -11,6 +11,7 @@ import 'package:app_beauty/src/views/cursos_administradores_view.dart';
 import 'package:app_beauty/src/views/acceso_alumnas_view.dart';
 import 'package:app_beauty/src/views/gastos_cursos_view.dart';
 import 'package:app_beauty/src/views/ventas_view.dart';
+import 'package:app_beauty/src/views/pedido_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/options': (context) => const OptionsView(),
         '/inventario': (context) => const ProductosExcelView(),
         '/administrador': (context) => const AdminView(),
+        '/pedido': (context) => const PedidoView(),
         '/cursos_administradores': (context) =>
             const CursosAdministradoresView(),
         '/acceso_alumnas': (context) => const AccesoAlumnasView(),

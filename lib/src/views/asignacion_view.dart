@@ -78,8 +78,10 @@ class _AsignacionViewState extends State<AsignacionView> {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       print(' Datos recibidos: ${data.length} registros');
-      final encargadosFiltrados =
-          data.where((u) => (u['usuario']?.toLowerCase() == 'encargado')).toList();
+      final encargadosFiltrados = data.where((u) {
+        final usuario = (u['usuario'] ?? '').toString().toLowerCase();
+        return usuario == 'encargado' || usuario == 'pedido';
+      }).toList();
       print(' Encargados encontrados: ${encargadosFiltrados.length}');
       return encargadosFiltrados;
     }

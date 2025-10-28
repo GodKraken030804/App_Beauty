@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import 'options_view.dart';
 import 'package:app_beauty/src/views/admin_view.dart';
+import 'package:app_beauty/src/views/pedido_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -22,7 +23,7 @@ class _LoginViewState extends State<LoginView> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   final AuthService _authService = AuthService();
-  
+
   // Colores del gradiente
   final Color gradientStart = const Color(0xFFF26AB6);
   final Color gradientEnd = const Color(0xFFAA57EC);
@@ -80,7 +81,11 @@ class _LoginViewState extends State<LoginView> {
               debugPrint('Clave: $key, Valor: $value');
             });
           }
-          final rol = decodedToken['rol'] ?? 'default';
+          // Obtener el rol del token (puede venir como 'rol' o 'usuario')
+          final rol =
+              (decodedToken['rol'] ?? decodedToken['usuario'] ?? 'default')
+                  .toString()
+                  .toLowerCase();
 
           // 👇 Determinar vista de destino según el rol
           Widget destino;
@@ -88,6 +93,8 @@ class _LoginViewState extends State<LoginView> {
             destino = const AdminView();
           } else if (rol == 'encargado') {
             destino = const OptionsView();
+          } else if (rol == 'pedido') {
+            destino = const PedidoView();
           } else {
             destino = const OptionsView(); // Vista por defecto
           }
@@ -176,14 +183,16 @@ class _LoginViewState extends State<LoginView> {
                       fillColor: Colors.white,
                       labelText: 'Correo electrónico',
                       labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-                      prefixIcon: const Icon(Icons.email, color: Color(0xFFF26AB6)),
+                      prefixIcon:
+                          const Icon(Icons.email, color: Color(0xFFF26AB6)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                        borderSide: const BorderSide(
+                            color: Color(0xFFF26AB6), width: 1.5),
                       ),
                     ),
                     validator: (value) {
@@ -220,10 +229,13 @@ class _LoginViewState extends State<LoginView> {
                       fillColor: Colors.white,
                       labelText: 'Contraseña',
                       labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-                      prefixIcon: const Icon(Icons.lock, color: Color(0xFFF26AB6)),
+                      prefixIcon:
+                          const Icon(Icons.lock, color: Color(0xFFF26AB6)),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                           color: const Color(0xFFF26AB6),
                         ),
                         onPressed: () {
@@ -238,7 +250,8 @@ class _LoginViewState extends State<LoginView> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                        borderSide: const BorderSide(
+                            color: Color(0xFFF26AB6), width: 1.5),
                       ),
                     ),
                     validator: (value) {
@@ -281,7 +294,8 @@ class _LoginViewState extends State<LoginView> {
                         alignment: Alignment.center,
                         constraints: const BoxConstraints(minHeight: 50),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : Text(
                                 'Ingresar',
                                 style: GoogleFonts.poppins(
