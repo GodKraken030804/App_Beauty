@@ -317,6 +317,10 @@ class _VentasViewState extends State<VentasView> {
           respJson = jsonDecode(res.body);
         } catch (_) {}
 
+        // Actualizar cantidades en la tabla asignado después de venta exitosa
+        await _actualizarCantidadesAsignadas(
+            userId, productos.cast<Map<String, dynamic>>());
+
         if (!mounted) return;
         await showDialog(
           context: context,
@@ -567,6 +571,121 @@ class _VentasViewState extends State<VentasView> {
   // Estrategia:
   // 1) GET api/v1/carrito -> localizar items del usuario y DELETE api/v1/carrito/{id}
   // 2) Si no hay IDs, intentar un DELETE masivo por encargado: api/v1/carrito/encargado/{userId}
+
+  Future<void> _actualizarCantidadesAsignadas(
+      int? userId, List<Map<String, dynamic>> productos) async {
+    if (userId == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      final baseEmpresa = (dotenv.env['API_EMPRESA'] ?? '').trim();
+
+      // Obtener los registros de asignación del usuario actual
+      final getUri =
+          Uri.parse(baseEmpresa).resolve('api/v1/asignado/user/$userId');
+      debugPrint(
+          '[GET asignado] Obteniendo asignaciones del usuario $userId: ${getUri.toString()}');
+
+      final getRes = await http.get(getUri, headers: {
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
+
+      debugPrint('[GET asignado] Status: ${getRes.statusCode}');
+      debugPrint('[GET asignado] Response: ${getRes.body}');
+
+      if (getRes.statusCode >= 200 && getRes.statusCode < 300) {
+        final asignaciones = jsonDecode(getRes.body) as List;
+        debugPrint(
+            '[GET asignado] Total asignaciones del usuario: ${asignaciones.length}');
+
+        // Filtrar productos reales (que tienen id_producto)
+        for (var prod in productos) {
+          final idProducto = _asInt(prod['id_producto']);
+          if (idProducto == null) continue;
+
+          final cantidadVendida = prod['cantidad'] is num
+              ? (prod['cantidad'] as num).toInt()
+              : int.tryParse('${prod['cantidad']}') ?? 0;
+
+          if (cantidadVendida <= 0) continue;
+
+          debugPrint(
+              '[Procesando] Producto ID: $idProducto, Cantidad vendida: $cantidadVendida');
+
+          // Buscar la asignación de este producto para este usuario
+          final asignacion = asignaciones.firstWhere(
+            (a) {
+              final aUserId = _asInt(a['iduser']);
+              final aProdId = _asInt(a['idproduc']);
+              debugPrint(
+                  '[Comparando] Asignación - userId: $aUserId (busco: $userId), productoId: $aProdId (busco: $idProducto)');
+              return aUserId == userId && aProdId == idProducto;
+            },
+            orElse: () => null,
+          );
+
+          if (asignacion != null) {
+            final asignacionId = _asInt(asignacion['id']);
+            final cantidadActual = asignacion['cantidad'] is num
+                ? (asignacion['cantidad'] as num).toInt()
+                : int.tryParse('${asignacion['cantidad']}') ?? 0;
+
+            // Calcular nueva cantidad
+            final nuevaCantidad = (cantidadActual - cantidadVendida)
+                .clamp(0, double.infinity)
+                .toInt();
+
+            debugPrint(
+                '[Calculando] Producto $idProducto: cantidad actual=$cantidadActual, vendida=$cantidadVendida, nueva=$nuevaCantidad');
+
+            // Actualizar con PUT
+            if (asignacionId != null) {
+              final putUri = Uri.parse(baseEmpresa)
+                  .resolve('api/v1/asignado/$asignacionId');
+              final putBody = jsonEncode({
+                'iduser': userId,
+                'idproduc': idProducto,
+                'cantidad': nuevaCantidad,
+              });
+
+              debugPrint('[PUT asignado/$asignacionId] Body: $putBody');
+
+              final putRes = await http.put(
+                putUri,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                  if (token != null) 'Authorization': 'Bearer $token',
+                },
+                body: putBody,
+              );
+
+              debugPrint(
+                  '[PUT asignado/$asignacionId] Status: ${putRes.statusCode} - Nueva cantidad: $nuevaCantidad');
+              debugPrint(
+                  '[PUT asignado/$asignacionId] Response: ${putRes.body}');
+
+              if (putRes.statusCode >= 200 && putRes.statusCode < 300) {
+                debugPrint(
+                    '✅ Actualizado producto $idProducto: $cantidadActual -> $nuevaCantidad');
+              } else {
+                debugPrint(
+                    '⚠️ Error al actualizar producto $idProducto: ${putRes.body}');
+              }
+            }
+          } else {
+            debugPrint(
+                '⚠️ No se encontró asignación para producto $idProducto del usuario $userId');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al actualizar cantidades asignadas: $e');
+    }
+  }
+
   Future<void> _vaciarCarritoBackend(int userId, {String? token}) async {
     final base = (dotenv.env['API_EMPRESA'] ?? '').trim();
     final headers = {
