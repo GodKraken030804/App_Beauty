@@ -3,7 +3,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
-// import 'package:jwt_decoder/jwt_decoder.dart'; // No se usa aquí
 import 'package:another_flushbar/flushbar.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -43,11 +42,14 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
   String _query = '';
 
   late final AnimationController _listIntroController;
+  // Pagos múltiples: mapa por alumna (clave derivada del curso/índice/nombre)
+  Map<String, List<_PayPart>> _multiPays = {};
 
   @override
   void initState() {
     super.initState();
     _loadSavedAlumnas();
+    _loadMultiPays();
 
     _listIntroController = AnimationController(
       vsync: this,
@@ -66,6 +68,49 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     _listIntroController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  String _mpKeyForAlumna(Alumna a, int index) {
+    final course = widget.cursoId?.toString() ?? 'global';
+    return 'c$course|i$index|${a.nombre}';
+  }
+
+  Future<void> _loadMultiPays() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mpKey = 'multi_pays_${widget.cursoId ?? 'global'}';
+    final data = prefs.getString(mpKey);
+    if (data == null) return;
+    try {
+      final Map<String, dynamic> raw = jsonDecode(data);
+      final map = <String, List<_PayPart>>{};
+      raw.forEach((k, v) {
+        final list = (v as List)
+            .map((e) => _PayPart(
+                  method: e['method'] as String,
+                  amount: (e['amount'] as num).toDouble(),
+                  last4: (e['last4'] ?? '') as String,
+                ))
+            .toList();
+        map[k] = list;
+      });
+      setState(() => _multiPays = map);
+    } catch (_) {}
+  }
+
+  Future<void> _saveMultiPays() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mpKey = 'multi_pays_${widget.cursoId ?? 'global'}';
+    final raw = <String, dynamic>{};
+    _multiPays.forEach((k, v) {
+      raw[k] = v
+          .map((p) => {
+                'method': p.method,
+                'amount': p.amount,
+                'last4': p.last4,
+              })
+          .toList();
+    });
+    await prefs.setString(mpKey, jsonEncode(raw));
   }
 
   Future<void> _saveAlumnas(List<Alumna> lista) async {
@@ -406,59 +451,73 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     }
   }
 
-  Future<void> _exportCsv() async {
-    const String delim = ';';
-    String escapeCsv(String s) {
-      if (s.contains('"') ||
-          s.contains(delim) ||
-          s.contains('\n') ||
-          s.contains('\r')) {
-        return '"' + s.replaceAll('"', '""') + '"';
-      }
-      return s;
-    }
+  
 
-    // Fecha actual disponible si se requiere en futuras columnas
-    // Nombre según convención: Lista_(Ciudad)_(Mes)_Final.csv
+  Future<void> _exportExcel() async {
+    // Crea un archivo XLSX real con columnas separadas para que Excel lo abra correctamente
     final _NameParts np = _deriveCityAndMonth(widget.nombreCurso);
-    final filename = 'Lista_${np.city}_${np.month}_Final.csv';
+    final filename = 'Lista_${np.city}_${np.month}_Final.xlsx';
 
+    final book = excel_lib.Excel.createExcel();
+    // Usamos la hoja por defecto (Sheet1) para compatibilidad
+    final sheet = book.sheets[book.getDefaultSheet() ?? 'Sheet1'];
+
+    // Encabezados
     final header = [
       'Nombre',
       'Servicio',
       'Anticipo',
       'Método de pago',
       '4 Dígitos',
-      'Llego'
+      'Llego',
     ];
-    final lines = <String>[header.map(escapeCsv).join(delim)];
-    for (var a in _alumnas) {
-      final row = [
+    sheet?.appendRow(header);
+
+    // Filas de datos
+    for (final a in _alumnas) {
+      sheet?.appendRow([
         a.nombre,
         a.servicio,
-        a.anticipo.toString(),
+        a.anticipo, // númerico
         a.metodoPago,
         a.digitos,
-        a.llego == true ? 'Sí' : (a.llego == false ? 'No' : '')
-      ];
-      lines.add(row.map((e) => escapeCsv(e.toString())).join(delim));
+        a.llego == true
+            ? 'Sí'
+            : (a.llego == false
+                ? 'No'
+                : ''),
+      ]);
     }
-    final csv = lines.join('\r\n');
-    final bytesNoBOM = utf8.encode(csv);
-    final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF] + bytesNoBOM);
+
+    final encoded = book.encode();
+    if (encoded == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo generar el Excel')),
+        );
+      }
+      return;
+    }
+    final bytes = Uint8List.fromList(encoded);
 
     if (kIsWeb) {
-      final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
+      final blob = html.Blob([
+        bytes
+      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       final url = html.Url.createObjectUrlFromBlob(blob);
       html.AnchorElement(href: url)
         ..setAttribute('download', filename)
         ..click();
       html.Url.revokeObjectUrl(url);
-      _showNotification('Exportado', 'CSV preparado');
+      _showNotification('Exportado', 'Excel preparado');
       return;
     }
-    // Preguntar: Descargar (Descargas) o Enviar
-    await _promptSaveOrSend(bytes, filename, mimeType: 'text/csv');
+
+    await _promptSaveOrSend(
+      bytes,
+      filename,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
   }
 
   Future<void> _downloadAssignedExcel() async {
@@ -641,8 +700,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     }
   }
 
-  Future<void> _promptSaveDownloaded(Uint8List bytes, String filename,
-      {required String mimeType}) async {}
+  
 
   Future<void> _promptSaveOrSend(Uint8List bytes, String filename,
       {required String mimeType}) async {
@@ -738,23 +796,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     );
   }
 
-  Future<void> _saveWithPicker(Uint8List bytes, String filename) async {
-    // Separa nombre y extensión para FileSaver (respaldo si se requiere)
-    final dot = filename.lastIndexOf('.');
-    String base = filename;
-    String ext = '';
-    if (dot != -1 && dot < filename.length - 1) {
-      base = filename.substring(0, dot);
-      ext = filename.substring(dot + 1);
-    }
-    // Usa el selector del sistema (SAF en Android)
-    await FileSaver.instance.saveFile(
-      name: base,
-      ext: ext,
-      bytes: bytes,
-      mimeType: MimeType.other,
-    );
-  }
+  
 
   Future<bool> _saveToDownloads(Uint8List bytes, String filename,
       {required String mimeType}) async {
@@ -781,39 +823,50 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
 
   // Guarda en una carpeta segura de la app: Android => /Android/data/<paquete>/files/AppBeauty
   // iOS => Documents/AppBeauty. No requiere permisos especiales.
-  Future<io.File> _createFileInAppFolder(String filename) async {
-    if (io.Platform.isAndroid) {
-      final baseDir = await getExternalStorageDirectory();
-      if (baseDir == null) {
-        // Fallback a documentos internos si algo falla
-        final docs = await getApplicationDocumentsDirectory();
-        final appDir = io.Directory('${docs.path}/AppBeauty');
-        if (!await appDir.exists()) await appDir.create(recursive: true);
-        return io.File('${appDir.path}/$filename');
-      }
-      final appDir = io.Directory('${baseDir.path}/AppBeauty');
-      if (!await appDir.exists()) await appDir.create(recursive: true);
-      return io.File('${appDir.path}/$filename');
-    } else {
-      final docs = await getApplicationDocumentsDirectory();
-      final appDir = io.Directory('${docs.path}/AppBeauty');
-      if (!await appDir.exists()) await appDir.create(recursive: true);
-      return io.File('${appDir.path}/$filename');
-    }
-  }
+  
 
   void _showAttendanceDialog(int index) {
-    String metodo = _alumnas[index].metodoPago;
-    String dig = _alumnas[index].digitos;
-    bool showDig =
-        metodo.contains('Transferencia') || metodo.contains('Tarjeta');
+    final Alumna alumna = _alumnas[index];
     final formKey = GlobalKey<FormState>();
 
-    final List<_PayOption> options = [
-      _PayOption('Efectivo', Icons.payments_rounded, Colors.green),
-      _PayOption('Transferencia', Icons.account_balance, Colors.blueAccent),
-      _PayOption('Tarjeta', Icons.credit_card, Colors.deepPurple),
-    ];
+    // Prefill desde pagos múltiples guardados
+    final mpKey = _mpKeyForAlumna(alumna, index);
+    final existing = List<_PayPart>.from(_multiPays[mpKey] ?? []);
+    bool selEfectivo = existing.any((e) => e.method == 'Efectivo');
+    bool selTransfer = existing.any((e) => e.method == 'Transferencia');
+    bool selTarjeta = existing.any((e) => e.method == 'Tarjeta');
+
+    final effCtrl = TextEditingController(
+        text: (existing.firstWhere(
+                      (e) => e.method == 'Efectivo',
+                      orElse: () => _PayPart(method: 'Efectivo', amount: 0))
+                  .amount)
+              .toString());
+    final trfCtrl = TextEditingController(
+        text: (existing.firstWhere(
+                      (e) => e.method == 'Transferencia',
+                      orElse: () => _PayPart(method: 'Transferencia', amount: 0))
+                  .amount)
+              .toString());
+    final trfLastCtrl = TextEditingController(
+        text: existing
+                .firstWhere(
+                    (e) => e.method == 'Transferencia',
+                    orElse: () => _PayPart(method: 'Transferencia', amount: 0))
+                .last4 ??
+            '');
+    final cardCtrl = TextEditingController(
+        text: (existing.firstWhere(
+                      (e) => e.method == 'Tarjeta',
+                      orElse: () => _PayPart(method: 'Tarjeta', amount: 0))
+                  .amount)
+              .toString());
+    final cardLastCtrl = TextEditingController(
+        text: existing
+                .firstWhere((e) => e.method == 'Tarjeta',
+                    orElse: () => _PayPart(method: 'Tarjeta', amount: 0))
+                .last4 ??
+            '');
 
     showDialog(
       context: context,
@@ -858,78 +911,97 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                     ],
                   ),
                   const SizedBox(height: 18),
-                  Form(
-                    key: formKey,
+                  // Selector de múltiples métodos
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: DropdownButtonFormField<String>(
-                            value: metodo.isEmpty ? null : metodo,
-                            decoration: const InputDecoration(
-                              labelText: 'Método de pago',
-                              border: InputBorder.none,
-                              labelStyle: TextStyle(color: Colors.grey),
+                        Text('Métodos de pago (puede seleccionar varios):',
+                            style: GoogleFonts.poppins(fontSize: 13.5, color: Colors.grey[700])),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            FilterChip(
+                              label: const Text('Efectivo'),
+                              selected: selEfectivo,
+                              onSelected: (v) => setStateD(() => selEfectivo = v),
+                              selectedColor: Colors.green.shade50,
+                              checkmarkColor: Colors.green,
+                              avatar: Icon(Icons.payments_rounded, color: Colors.green.shade700, size: 18),
                             ),
-                            items: options
-                                .map((o) => DropdownMenuItem<String>(
-                                      value: o.label,
-                                      child: Row(
-                                        children: [
-                                          Icon(o.icon,
-                                              size: 18, color: o.color),
-                                          const SizedBox(width: 8),
-                                          Text(o.label,
-                                              style: GoogleFonts.poppins()),
-                                        ],
-                                      ),
-                                    ))
-                                .toList(),
-                            onChanged: (v) => setStateD(() {
-                              metodo = v ?? '';
-                              showDig = metodo.contains('Transferencia') ||
-                                  metodo.contains('Tarjeta');
-                            }),
+                            FilterChip(
+                              label: const Text('Transferencia'),
+                              selected: selTransfer,
+                              onSelected: (v) => setStateD(() => selTransfer = v),
+                              selectedColor: Colors.blue.shade50,
+                              checkmarkColor: Colors.blueAccent,
+                              avatar: const Icon(Icons.account_balance, color: Colors.blueAccent, size: 18),
+                            ),
+                            FilterChip(
+                              label: const Text('Tarjeta'),
+                              selected: selTarjeta,
+                              onSelected: (v) => setStateD(() => selTarjeta = v),
+                              selectedColor: Colors.deepPurple.shade50,
+                              checkmarkColor: Colors.deepPurple,
+                              avatar: const Icon(Icons.credit_card, color: Colors.deepPurple, size: 18),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Form(
+                          key: formKey,
+                          child: Column(
+                            children: [
+                              if (selEfectivo)
+                                _payRow(
+                                  icon: Icons.payments_rounded,
+                                  color: Colors.green,
+                                  label: 'Efectivo',
+                                  amountCtrl: effCtrl,
+                                ),
+                              if (selTransfer)
+                                _payRow(
+                                  icon: Icons.account_balance,
+                                  color: Colors.blueAccent,
+                                  label: 'Transferencia',
+                                  amountCtrl: trfCtrl,
+                                  last4Ctrl: trfLastCtrl,
+                                ),
+                              if (selTarjeta)
+                                _payRow(
+                                  icon: Icons.credit_card,
+                                  color: Colors.deepPurple,
+                                  label: 'Tarjeta',
+                                  amountCtrl: cardCtrl,
+                                  last4Ctrl: cardLastCtrl,
+                                ),
+                            ],
                           ),
                         ),
-                        if (showDig) const SizedBox(height: 12),
-                        if (showDig)
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: TextFormField(
-                              initialValue: dig,
-                              maxLength: 4,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: 'Últimos 4 dígitos',
-                                border: InputBorder.none,
-                                labelStyle: const TextStyle(color: Colors.grey),
-                                counterText: '',
-                                prefixIcon: Icon(
-                                  metodo.contains('Tarjeta')
-                                      ? Icons.credit_card
-                                      : Icons.swap_horiz,
-                                  color: _gradientEnd,
-                                ),
-                              ),
-                              onChanged: (v) => dig = v,
-                            ),
-                          ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: _gradientEnd, size: 18),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Si usa Tarjeta o Transferencia, ingrese los últimos 4 dígitos.',
+                          style: GoogleFonts.poppins(fontSize: 12.5, color: Colors.grey[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -940,12 +1012,39 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                           ),
                           child: TextButton(
                             onPressed: () async {
+                              final parts = <_PayPart>[];
+                              if (selEfectivo) {
+                                final a = double.tryParse(effCtrl.text.trim()) ?? 0;
+                                parts.add(_PayPart(method: 'Efectivo', amount: a));
+                              }
+                              if (selTransfer) {
+                                final a = double.tryParse(trfCtrl.text.trim()) ?? 0;
+                                parts.add(_PayPart(method: 'Transferencia', amount: a, last4: trfLastCtrl.text.trim()));
+                              }
+                              if (selTarjeta) {
+                                final a = double.tryParse(cardCtrl.text.trim()) ?? 0;
+                                parts.add(_PayPart(method: 'Tarjeta', amount: a, last4: cardLastCtrl.text.trim()));
+                              }
+                              final total = parts.fold<double>(0, (s, p) => s + p.amount);
                               setState(() {
                                 _alumnas[index].llego = false;
-                                _alumnas[index].metodoPago = metodo;
-                                _alumnas[index].digitos = showDig ? dig : '';
+                                if (total > 0) _alumnas[index].anticipo = total;
+                                _alumnas[index].metodoPago = parts.isEmpty
+                                    ? ''
+                                    : parts.map((p) => p.method).join(' + ');
+                                final tarjeta = parts.firstWhere(
+                                    (p) => p.method == 'Tarjeta' && (p.last4 ?? '').isNotEmpty,
+                                    orElse: () => _PayPart(method: 'Tarjeta', amount: 0, last4: ''));
+                                final transfer = parts.firstWhere(
+                                    (p) => p.method == 'Transferencia' && (p.last4 ?? '').isNotEmpty,
+                                    orElse: () => _PayPart(method: 'Transferencia', amount: 0, last4: ''));
+                                _alumnas[index].digitos = (tarjeta.last4?.isNotEmpty ?? false)
+                                    ? (tarjeta.last4 ?? '')
+                                    : (transfer.last4 ?? '');
                               });
+                              _multiPays[mpKey] = parts;
                               await _saveAlumnas(_alumnas);
+                              await _saveMultiPays();
                               Navigator.pop(context);
                             },
                             style: TextButton.styleFrom(
@@ -973,13 +1072,44 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                           ),
                           child: TextButton(
                             onPressed: () async {
+                              if (!(selEfectivo || selTransfer || selTarjeta)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Seleccione al menos un método')));
+                                return;
+                              }
+                              final parts = <_PayPart>[];
+                              if (selEfectivo) {
+                                final a = double.tryParse(effCtrl.text.trim()) ?? 0;
+                                parts.add(_PayPart(method: 'Efectivo', amount: a));
+                              }
+                              if (selTransfer) {
+                                final a = double.tryParse(trfCtrl.text.trim()) ?? 0;
+                                parts.add(_PayPart(method: 'Transferencia', amount: a, last4: trfLastCtrl.text.trim()));
+                              }
+                              if (selTarjeta) {
+                                final a = double.tryParse(cardCtrl.text.trim()) ?? 0;
+                                parts.add(_PayPart(method: 'Tarjeta', amount: a, last4: cardLastCtrl.text.trim()));
+                              }
+                              final total = parts.fold<double>(0, (s, p) => s + p.amount);
                               setState(() {
                                 _alumnas[index].llego = true;
-                                _alumnas[index].metodoPago = metodo;
-                                _alumnas[index].digitos = showDig ? dig : '';
+                                if (total > 0) _alumnas[index].anticipo = total;
+                                _alumnas[index].metodoPago = parts.map((p) => p.method).join(' + ');
+                                final tarjeta = parts.firstWhere(
+                                    (p) => p.method == 'Tarjeta' && (p.last4 ?? '').isNotEmpty,
+                                    orElse: () => _PayPart(method: 'Tarjeta', amount: 0, last4: ''));
+                                final transfer = parts.firstWhere(
+                                    (p) => p.method == 'Transferencia' && (p.last4 ?? '').isNotEmpty,
+                                    orElse: () => _PayPart(method: 'Transferencia', amount: 0, last4: ''));
+                                _alumnas[index].digitos = (tarjeta.last4?.isNotEmpty ?? false)
+                                    ? (tarjeta.last4 ?? '')
+                                    : (transfer.last4 ?? '');
                               });
+                              _multiPays[mpKey] = parts;
                               await _saveAlumnas(_alumnas);
+                              await _saveMultiPays();
                               Navigator.pop(context);
+                              _showOverlayTick(Colors.green, Icons.check_circle);
                             },
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.white,
@@ -1084,9 +1214,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
             onTap: _importFile,
           ),
           FabItem(
-            label: 'Exportar CSV final',
+            label: 'Exportar Excel final',
             icon: Icons.table_view,
-            onTap: _exportCsv,
+            onTap: _exportExcel,
           ),
         ],
         gradientStart: _gradientStart,
@@ -1140,6 +1270,96 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     );
   }
 
+  Widget _payRow({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required TextEditingController amountCtrl,
+    TextEditingController? last4Ctrl,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextFormField(
+              controller: amountCtrl,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: '$label (monto)',
+                labelStyle: const TextStyle(color: Colors.grey),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: color, width: 1.2),
+                ),
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null; // permitir 0/vacío
+                if (double.tryParse(v.trim()) == null) return 'Monto inválido';
+                return null;
+              },
+            ),
+          ),
+          if (last4Ctrl != null) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 120,
+              child: TextFormField(
+                controller: last4Ctrl,
+                maxLength: 4,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Últimos 4',
+                  counterText: '',
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return null; // opcional
+                  if (v.length != 4 || int.tryParse(v) == null) {
+                    return '4 dígitos';
+                  }
+                  return null;
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showOverlayTick(Color color, IconData icon) {
+  final overlay = Overlay.of(context);
+    final entry = OverlayEntry(
+      builder: (ctx) {
+        return Positioned.fill(
+          child: IgnorePointer(
+            ignoring: true,
+            child: Center(
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 350),
+                scale: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: Icon(icon, color: color, size: 68),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    overlay.insert(entry);
+    Future.delayed(const Duration(milliseconds: 750), () {
+      entry.remove();
+    });
+  }
+
   Widget _buildAnimatedList(List<Alumna> list) {
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 8),
@@ -1147,7 +1367,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       itemBuilder: (context, index) {
         final a = list[index];
         final _StatusVisual sVisual = _statusFor(a.llego);
-        final double start = (index.clamp(0, 8) as int) * 0.06;
+  final double start = (index.clamp(0, 8)) * 0.06;
         final double end = start + 0.6;
 
         return FadeTransition(
@@ -1206,40 +1426,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     );
   }
 
-  // Gastos-style gradient square button for actions
-  Widget _buildGradientSquareButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    String? tooltip,
-  }) {
-    final borderRadius = BorderRadius.circular(15);
-    final btn = Material(
-      color: Colors.transparent,
-      elevation: 5,
-      shadowColor: Colors.grey.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: borderRadius),
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [_gradientStart, _gradientEnd],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: borderRadius,
-        ),
-        child: InkWell(
-          borderRadius: borderRadius,
-          onTap: onTap,
-          child: SizedBox(
-            width: 64,
-            height: 64,
-            child: Center(child: Icon(icon, color: Colors.white, size: 30)),
-          ),
-        ),
-      ),
-    );
-    return tooltip != null ? Tooltip(message: tooltip, child: btn) : btn;
-  }
+  // (botón cuadrado estilo gastos) — no usado actualmente
 
   Widget _buildBottomBar() {
     return Container(
@@ -1281,31 +1468,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
 
   // Removed old expandable FAB menu in favor of three square actions
 
-  Widget _buildNavButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required bool isSelected,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 28),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // (nav button helper) — no usado actualmente
 
   _StatusVisual _statusFor(bool? llego) {
     if (llego == true) {
@@ -1591,6 +1754,14 @@ class _AlumnoCardState extends State<_AlumnoCard> {
   }
 }
 
+// Representa una parte de pago (método + monto + últimos 4)
+class _PayPart {
+  final String method;
+  final double amount;
+  final String? last4;
+  _PayPart({required this.method, required this.amount, this.last4});
+}
+
 class _StatusVisual {
   final Color bgStart;
   final Color bgEnd;
@@ -1607,13 +1778,6 @@ class _StatusVisual {
     required this.iconColor,
     required this.label,
   });
-}
-
-class _PayOption {
-  final String label;
-  final IconData icon;
-  final Color color;
-  const _PayOption(this.label, this.icon, this.color);
 }
 
 class _FabSpeedMenu extends StatefulWidget {
