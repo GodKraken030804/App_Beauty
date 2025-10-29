@@ -79,8 +79,12 @@ class _AsignacionViewState extends State<AsignacionView> {
       final data = jsonDecode(response.body);
       print(' Datos recibidos: ${data.length} registros');
       final encargadosFiltrados = data.where((u) {
-        final usuario = (u['usuario'] ?? '').toString().toLowerCase();
-        return usuario == 'encargado' || usuario == 'pedido';
+        final usuario = (u['usuario'] ?? '')
+            .toString()
+            .toLowerCase()
+            .trim();
+        // Solo mostrar usuarios con rol Encargado para evitar asignaciones incorrectas
+        return usuario == 'encargado';
       }).toList();
       print(' Encargados encontrados: ${encargadosFiltrados.length}');
       return encargadosFiltrados;
@@ -123,14 +127,23 @@ class _AsignacionViewState extends State<AsignacionView> {
         throw Exception('No se encontró el token de autenticación');
       }
 
-      // Preparar URL
-      final baseUrl = dotenv.env['API_GATEWAY']!.trim();
-      final uri = Uri.parse('${baseUrl}asignarcurso/admin');
+  // Preparar URL (normaliza la barra final para evitar concatenaciones incorrectas)
+  final baseUrlRaw = dotenv.env['API_GATEWAY']!.trim();
+  final baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw : '$baseUrlRaw/';
+  final uri = Uri.parse('${baseUrl}asignarcurso/admin');
 
       print('\nDATOS DE LA ASIGNACIÓN:');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       print('URL: $uri');
-      print('ID Encargado: $selectedOption1');
+      // Logs adicionales para validar selección antes de enviar
+      final encargadoSel = encargados.firstWhere(
+        (e) => e['id'].toString() == selectedOption1,
+        orElse: () => null,
+      );
+      final encargadoNombre = encargadoSel == null
+          ? 'Desconocido'
+          : (encargadoSel['nombre'] ?? 'Sin nombre');
+      print('Encargado seleccionado: $encargadoNombre (ID: $selectedOption1)');
       print('ID Curso: $selectedOption2');
       print(
           'Archivo: ${excelFile!.name} (${(excelFile!.size / 1024).toStringAsFixed(2)} KB)');
@@ -142,7 +155,7 @@ class _AsignacionViewState extends State<AsignacionView> {
       request.fields['id_curso'] = selectedOption2!;
       request.fields['id_encargado'] = selectedOption1!;
 
-      if (kIsWeb) {
+  if (kIsWeb) {
         // Para web usamos los bytes directamente
         final contentType = excelFile!.name.endsWith('.csv')
             ? MediaType('text', 'csv')
@@ -159,10 +172,18 @@ class _AsignacionViewState extends State<AsignacionView> {
         ));
         print('   └─ Tipo de envío: Bytes (Web)');
       } else {
-        // Para plataformas nativas usamos el path
+        // Para plataformas nativas usamos el path y definimos content-type según extensión
+        final nameLower = excelFile!.name.toLowerCase();
+        final isCsv = nameLower.endsWith('.csv');
+        final mediaType = isCsv
+            ? MediaType('text', 'csv')
+            : MediaType('application',
+                'vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
         request.files.add(await http.MultipartFile.fromPath(
           'excel',
           excelFile!.path!,
+          contentType: mediaType,
         ));
         print('   └─ Tipo de envío: Path (Nativo)');
         print('   └─ Ruta: ${excelFile!.path}');

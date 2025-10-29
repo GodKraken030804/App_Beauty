@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/inventario_view.dart';
 import 'package:app_beauty/src/views/ventas_view.dart';
-import 'package:app_beauty/src/views/mi_perfil_view.dart';
+import 'package:app_beauty/src/views/mi_perfil_pedidos_view.dart';
 
 class PedidoView extends StatefulWidget {
   const PedidoView({super.key});
@@ -141,11 +141,15 @@ class _PedidoViewState extends State<PedidoView> {
             onTap: (index) {
               setState(() => _currentIndex = index);
               if (index == 0) {
-                // Ya estás en Principal, no hace nada
-              } else if (index == 1) {
-                Navigator.push(
+                // Forzar navegación a PedidoView para mantener circuito entre 2 vistas
+                Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                  MaterialPageRoute(builder: (_) => const PedidoView()),
+                );
+              } else if (index == 1) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MiPerfilPedidosView()),
                 );
               }
             },

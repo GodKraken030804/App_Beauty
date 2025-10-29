@@ -462,25 +462,77 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     // Usamos la hoja por defecto (Sheet1) para compatibilidad
     final sheet = book.sheets[book.getDefaultSheet() ?? 'Sheet1'];
 
-    // Encabezados
+    // Encabezados en formato similar a Ventas: métodos por columna y total
     final header = [
       'Nombre',
       'Servicio',
-      'Anticipo',
-      'Método de pago',
-      '4 Dígitos',
+      'Total',
+      'Efectivo',
+      'Tarjeta',
+      'Transferencia',
+      'Tarjeta Ultimos 4',
+      'Transferencia Ultimos 4',
       'Llego',
     ];
     sheet?.appendRow(header);
 
-    // Filas de datos
-    for (final a in _alumnas) {
+  // Filas de datos con desglose por método
+  double sumEff = 0.0, sumCard = 0.0, sumTrf = 0.0, sumTotal = 0.0;
+  for (int i = 0; i < _alumnas.length; i++) {
+      final a = _alumnas[i];
+      final key = _mpKeyForAlumna(a, i);
+      final parts = _multiPays[key] ?? const <_PayPart>[];
+
+      double eff = 0.0, card = 0.0, trf = 0.0;
+      String? card4;
+      String? trf4;
+
+      if (parts.isNotEmpty) {
+        for (final p in parts) {
+          switch (p.method) {
+            case 'Efectivo':
+              eff += p.amount;
+              break;
+            case 'Tarjeta':
+              card += p.amount;
+              card4 ??= (p.last4 ?? '').trim().isNotEmpty ? p.last4 : null;
+              break;
+            case 'Transferencia':
+              trf += p.amount;
+              trf4 ??= (p.last4 ?? '').trim().isNotEmpty ? p.last4 : null;
+              break;
+          }
+        }
+      } else {
+        final m = a.metodoPago.toLowerCase();
+        if (m.contains('tarjeta')) {
+          card = a.anticipo;
+          card4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
+        } else if (m.contains('transfer')) {
+          trf = a.anticipo;
+          trf4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
+        } else if (m.contains('efectivo') || m.isEmpty) {
+          eff = a.anticipo;
+        }
+      }
+
+  final total = double.parse((eff + card + trf).toStringAsFixed(2));
+
+  // Acumular totales para la fila final
+  sumEff += eff;
+  sumCard += card;
+  sumTrf += trf;
+  sumTotal += total;
+
       sheet?.appendRow([
         a.nombre,
         a.servicio,
-        a.anticipo, // númerico
-        a.metodoPago,
-        a.digitos,
+        total,
+        eff,
+        card,
+        trf,
+        card4 ?? '',
+        trf4 ?? '',
         a.llego == true
             ? 'Sí'
             : (a.llego == false
@@ -488,6 +540,20 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                 : ''),
       ]);
     }
+
+    // Fila de totales al final del reporte
+    sheet?.appendRow([]); // línea en blanco separadora
+    sheet?.appendRow([
+      'Totales',
+      '',
+      double.parse(sumTotal.toStringAsFixed(2)),
+      double.parse(sumEff.toStringAsFixed(2)),
+      double.parse(sumCard.toStringAsFixed(2)),
+      double.parse(sumTrf.toStringAsFixed(2)),
+      '',
+      '',
+      '',
+    ]);
 
     final encoded = book.encode();
     if (encoded == null) {
@@ -836,18 +902,14 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     bool selTransfer = existing.any((e) => e.method == 'Transferencia');
     bool selTarjeta = existing.any((e) => e.method == 'Tarjeta');
 
-    final effCtrl = TextEditingController(
-        text: (existing.firstWhere(
-                      (e) => e.method == 'Efectivo',
-                      orElse: () => _PayPart(method: 'Efectivo', amount: 0))
-                  .amount)
-              .toString());
-    final trfCtrl = TextEditingController(
-        text: (existing.firstWhere(
-                      (e) => e.method == 'Transferencia',
-                      orElse: () => _PayPart(method: 'Transferencia', amount: 0))
-                  .amount)
-              .toString());
+  double _findAmt(String method) => existing
+    .firstWhere((e) => e.method == method,
+      orElse: () => _PayPart(method: method, amount: 0))
+    .amount;
+  String _txtOrEmpty(double v) => (v == 0) ? '' : v.toString();
+
+  final effCtrl = TextEditingController(text: _txtOrEmpty(_findAmt('Efectivo')));
+  final trfCtrl = TextEditingController(text: _txtOrEmpty(_findAmt('Transferencia')));
     final trfLastCtrl = TextEditingController(
         text: existing
                 .firstWhere(
@@ -855,12 +917,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                     orElse: () => _PayPart(method: 'Transferencia', amount: 0))
                 .last4 ??
             '');
-    final cardCtrl = TextEditingController(
-        text: (existing.firstWhere(
-                      (e) => e.method == 'Tarjeta',
-                      orElse: () => _PayPart(method: 'Tarjeta', amount: 0))
-                  .amount)
-              .toString());
+  final cardCtrl = TextEditingController(text: _txtOrEmpty(_findAmt('Tarjeta')));
     final cardLastCtrl = TextEditingController(
         text: existing
                 .firstWhere((e) => e.method == 'Tarjeta',

@@ -8,20 +8,17 @@ import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-import 'options_view.dart';
-import 'gastos_cursos_view.dart'; 
+import 'pedido_view.dart';
 import 'Login_View.dart';
-import 'ingresos_cursos_view.dart'; // NUEVO
 
-
-class MiPerfilView extends StatefulWidget {
-  const MiPerfilView({super.key});
+class MiPerfilPedidosView extends StatefulWidget {
+  const MiPerfilPedidosView({super.key});
 
   @override
-  State<MiPerfilView> createState() => _MiPerfilViewState();
+  State<MiPerfilPedidosView> createState() => _MiPerfilPedidosViewState();
 }
 
-class _MiPerfilViewState extends State<MiPerfilView> {
+class _MiPerfilPedidosViewState extends State<MiPerfilPedidosView> {
   Uint8List? _webImage;
   File? _mobileImage;
   final Color gradientStart = const Color(0xFFF26AB6);
@@ -60,7 +57,7 @@ class _MiPerfilViewState extends State<MiPerfilView> {
     if (token != null && token.isNotEmpty) {
       try {
         final payload = JwtDecoder.decode(token);
-        // Preferir 'nombre'; si está vacío, probar otros campos comunes
+        // Preferir 'nombre' y luego otros posibles campos
         final candidates = [
           'nombre',
           'name',
@@ -75,8 +72,7 @@ class _MiPerfilViewState extends State<MiPerfilView> {
             break;
           }
         }
-
-        // Rol/tipo del usuario
+        // Rol del usuario
         final rawRole = (payload['rol'] ?? payload['usuario'] ?? '')
             .toString()
             .toLowerCase()
@@ -94,9 +90,7 @@ class _MiPerfilViewState extends State<MiPerfilView> {
           default:
             roleResolved = 'Usuario';
         }
-      } catch (_) {
-        // If decoding fails, fall back to email/default below
-      }
+      } catch (_) {}
     }
 
     if (resolved.isEmpty) {
@@ -133,7 +127,7 @@ class _MiPerfilViewState extends State<MiPerfilView> {
         flushbarPosition: FlushbarPosition.TOP,
         icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
         titleText: Text(
-          "Imagen cargada",
+          'Imagen cargada',
           style: GoogleFonts.poppins(
             fontSize: 20,
             color: Colors.white,
@@ -141,7 +135,7 @@ class _MiPerfilViewState extends State<MiPerfilView> {
           ),
         ),
         messageText: Text(
-          "La imagen de perfil se ha guardado correctamente.",
+          'La imagen de perfil se ha guardado correctamente.',
           style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
         ),
         duration: const Duration(seconds: 3),
@@ -233,112 +227,11 @@ class _MiPerfilViewState extends State<MiPerfilView> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const GastosCursosView()), 
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          elevation: 5,
-                          shadowColor: Colors.grey.withOpacity(0.5),
-                        ),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [gradientStart, gradientEnd],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Container(
-                            alignment: Alignment.center,
-                            constraints: const BoxConstraints(minHeight: 50),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.attach_money, size: 24),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Gastos',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const IngresosCursosView()),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          elevation: 5,
-                          shadowColor: Colors.grey.withOpacity(0.5),
-                        ),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [gradientStart, gradientEnd],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Container(
-                            alignment: Alignment.center,
-                            constraints: const BoxConstraints(minHeight: 50),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.trending_up, size: 24),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Ingresos adicionales',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                     InkWell(
                       onTap: () {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(
-                              builder: (_) => const LoginView()),
+                          MaterialPageRoute(builder: (_) => const LoginView()),
                         );
                       },
                       child: Text(
@@ -381,18 +274,18 @@ class _MiPerfilViewState extends State<MiPerfilView> {
               if (index == 0) {
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const OptionsView()),
+                  MaterialPageRoute(builder: (_) => const PedidoView()),
                 );
               }
             },
             items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.home),
-                label: "Principal",
+                label: 'Principal',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.person),
-                label: "Mi Perfil",
+                label: 'Mi Perfil',
               ),
             ],
           ),

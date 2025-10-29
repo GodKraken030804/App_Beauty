@@ -711,14 +711,36 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Inventario',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    color: gradientColors.first,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Inventario',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          color: gradientColors.first,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    // Botón discreto para "Armar paquete"
+                    Tooltip(
+                      message: 'Armar paquete',
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: gradientColors.first,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: _abrirArmarPaquete,
+                        icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                        label: Text('Armar', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 _buildSearchBar(),
@@ -807,6 +829,301 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ===================== Paquetes =====================
+class _PaqueteItem {
+  final Map producto;
+  final int cantidad;
+  _PaqueteItem({required this.producto, required this.cantidad});
+}
+
+extension on _ProductosExcelViewState {
+  Future<void> _abrirArmarPaquete() async {
+    if (productosAsignados.isEmpty) return;
+    final seleccion = await Navigator.push<List<_PaqueteItem>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _ArmarPaquetePage(
+          productos: productosAsignados,
+          colors: gradientColors,
+        ),
+      ),
+    );
+    if (seleccion == null || seleccion.isEmpty) return;
+    await _agregarPaqueteAlCarrito(seleccion);
+  }
+
+  Future<void> _agregarPaqueteAlCarrito(List<_PaqueteItem> items) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) return;
+      final userId = JwtDecoder.decode(token)['id'];
+
+      double totalPaquete = 0.0;
+      for (final it in items) {
+        final producto = it.producto;
+        final int cant = it.cantidad;
+        final double precio = (producto['precio'] is num)
+            ? (producto['precio'] as num).toDouble()
+            : double.tryParse('${producto['precio']}') ?? 0.0;
+        final double total = double.parse((precio * cant).toStringAsFixed(2));
+        totalPaquete += total;
+
+        final uri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/carrito');
+        final res = await http.post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'id_encargado': userId,
+            'id_producto': producto['id'],
+            'cantidad': cant,
+            'total': total,
+          }),
+        );
+
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          await _actualizarCantidadLocal(producto, cant);
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al agregar un producto del paquete (${res.statusCode})'),
+              backgroundColor: Colors.red.shade400,
+            ),
+          );
+          // Continuar con los demás ítems a pesar del error
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Paquete agregado: ${items.length} productos, total \$${totalPaquete.toStringAsFixed(2)}'),
+          backgroundColor: gradientColors.last,
+        ),
+      );
+      Navigator.pushNamed(context, '/ventas');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error creando paquete: $e'),
+          backgroundColor: Colors.red.shade400,
+        ),
+      );
+    }
+  }
+}
+
+class _ArmarPaquetePage extends StatefulWidget {
+  final List productos;
+  final List<Color> colors;
+  const _ArmarPaquetePage({required this.productos, required this.colors});
+
+  @override
+  State<_ArmarPaquetePage> createState() => _ArmarPaquetePageState();
+}
+
+class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _q = '';
+  final Map<int, int> _cantidades = {}; // id -> cantidad
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List _filtered() {
+    if (_q.isEmpty) return widget.productos;
+    final q = _q.toLowerCase();
+    return widget.productos
+        .where((p) => (p['nombre']?.toString().toLowerCase() ?? '').contains(q))
+        .toList();
+  }
+
+  int _stockOf(Map p) {
+    final c = p['cantidad_asignada'] ?? 0;
+    return c is num ? c.toInt() : int.tryParse('$c') ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final itemsSel = _cantidades.entries.where((e) => e.value > 0).length;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7F7),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: widget.colors.first,
+        elevation: 0,
+        title: Text('Armar paquete',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600,
+                color: widget.colors.first)),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _q = v.trim()),
+                decoration: InputDecoration(
+                  hintText: 'Buscar productos...',
+                  prefixIcon: Icon(Icons.search, color: widget.colors.first),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                itemCount: _filtered().length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                itemBuilder: (context, i) {
+                  final p = _filtered()[i] as Map;
+                  final idRaw = p['id'];
+                  final int id = (idRaw is int)
+                      ? idRaw
+                      : int.tryParse(idRaw?.toString() ?? '') ?? -1;
+                  final stock = _stockOf(p);
+                  final enabled = stock > 0;
+                  final selCant = _cantidades[id] ?? 0;
+                  return Opacity(
+                    opacity: enabled ? 1.0 : 0.5,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))
+                        ],
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        leading: Checkbox(
+                          value: selCant > 0,
+                          onChanged: enabled
+                              ? (v) {
+                                  setState(() {
+                                    _cantidades[id] = v == true ? 1 : 0;
+                                  });
+                                }
+                              : null,
+                        ),
+                        title: Text(
+                          (p['nombre'] ?? '').toString(),
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text('Stock: $stock', style: GoogleFonts.poppins(color: Colors.grey[700])),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline),
+                              onPressed: enabled && selCant > 0
+                                  ? () => setState(() => _cantidades[id] = (selCant - 1).clamp(0, stock))
+                                  : null,
+                            ),
+                            Text('$selCant'),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline),
+                              onPressed: enabled && selCant < stock
+                                  ? () => setState(() => _cantidades[id] = (selCant + 1).clamp(0, stock))
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: widget.colors.first),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text('Cancelar', style: GoogleFonts.poppins(color: widget.colors.first, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: itemsSel == 0
+                            ? null
+                            : () {
+                                final sel = <_PaqueteItem>[];
+                                for (final entry in _cantidades.entries) {
+                                  if (entry.value > 0) {
+                                    final prod = widget.productos.firstWhere(
+                                      (p) {
+                                        final r = p['id'];
+                                        final int pid = (r is int) ? r : int.tryParse(r?.toString() ?? '') ?? -1;
+                                        return pid == entry.key;
+                                      },
+                                      orElse: () => null,
+                                    );
+                                    if (prod != null) {
+                                      sel.add(_PaqueteItem(producto: prod as Map, cantidad: entry.value));
+                                    }
+                                  }
+                                }
+                                Navigator.pop(context, sel);
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: widget.colors),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Container(
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text('Agregar (${itemsSel})',
+                                style: GoogleFonts.poppins(
+                                    color: Colors.white, fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          ],
         ),
       ),
     );

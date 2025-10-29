@@ -8,8 +8,10 @@ class AsignacionService {
 
   Future<List<AsignacionModel>> getAsignaciones() async {
     try {
+      final base = _baseUrl.trim();
+      final normalized = base.endsWith('/') ? base : '$base/';
       final response = await http.get(
-        Uri.parse('$_baseUrl api/v1/asignar-curso'),
+        Uri.parse('${normalized}api/v1/asignar-curso'),
       );
 
       if (response.statusCode == 200) {
