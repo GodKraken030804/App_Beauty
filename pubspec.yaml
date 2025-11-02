@@ -88,6 +88,10 @@ flutter:
    - assets/images/ventas.png
    - assets/images/inventario.png
    - assets/.env
+   - assets/images/historiales.png
+   - assets/images/creacioncurso.png
+   - assets/images/administrarcurso.png
+   - assets/images/administrarencargados.png
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

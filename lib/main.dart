@@ -12,6 +12,7 @@ import 'package:app_beauty/src/views/acceso_alumnas_view.dart';
 import 'package:app_beauty/src/views/gastos_cursos_view.dart';
 import 'package:app_beauty/src/views/ventas_view.dart';
 import 'package:app_beauty/src/views/pedido_view.dart';
+import 'package:app_beauty/src/views/vista_prueba.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,7 @@ class MyApp extends StatelessWidget {
         '/acceso_alumnas': (context) => const AccesoAlumnasView(),
         '/gastos_cursos': (context) => const GastosCursosView(),
         '/ventas': (context) => const VentasView(),
+        '/vista_prueba': (context) => const VistaPrueba(),
       },
     );
   }
