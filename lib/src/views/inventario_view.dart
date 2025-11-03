@@ -7,11 +7,15 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:app_beauty/src/views/options_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_view.dart';
+import 'package:app_beauty/src/views/pedido_view.dart';
+import 'package:app_beauty/src/views/mi_perfil_pedidos_view.dart';
+import 'package:app_beauty/src/views/pedidos_ventas_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 // Removed exports & menu dependencies as per new requirements
 
 class ProductosExcelView extends StatefulWidget {
-  const ProductosExcelView({super.key});
+  final bool pedidoMode;
+  const ProductosExcelView({super.key, this.pedidoMode = false});
 
   @override
   State<ProductosExcelView> createState() => _ProductosExcelViewState();
@@ -403,7 +407,14 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
             backgroundColor: gradientColors.last,
           ),
         );
-        Navigator.pushNamed(context, '/ventas');
+        if (widget.pedidoMode) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const VentasPedidosView()),
+          );
+        } else {
+          Navigator.pushNamed(context, '/ventas');
+        }
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -807,15 +818,29 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
             currentIndex: 0,
             onTap: (index) {
               if (index == 0) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const OptionsView()),
-                );
+                if (widget.pedidoMode) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PedidoView()),
+                  );
+                } else {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OptionsView()),
+                  );
+                }
               } else if (index == 1) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MiPerfilView()),
-                );
+                if (widget.pedidoMode) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MiPerfilPedidosView()),
+                  );
+                } else {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                  );
+                }
               }
             },
             items: const [
@@ -912,7 +937,14 @@ extension on _ProductosExcelViewState {
           backgroundColor: gradientColors.last,
         ),
       );
-      Navigator.pushNamed(context, '/ventas');
+      if (widget.pedidoMode) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const VentasPedidosView()),
+        );
+      } else {
+        Navigator.pushNamed(context, '/ventas');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

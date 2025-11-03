@@ -28,7 +28,7 @@ class _RegistrarAlumnasNuevasViewState
   // Soporte de pagos múltiples
   bool _usarMultiples = false;
   bool _selEfectivo = false;
-  bool _selTransfer = false;
+  bool _selTransfer = false; 
   bool _selTarjeta = false;
   final TextEditingController _effCtrl = TextEditingController();
   final TextEditingController _trfCtrl = TextEditingController();

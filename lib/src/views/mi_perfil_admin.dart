@@ -7,7 +7,6 @@ import 'dart:io';
 import 'package:app_beauty/src/views/admin_view.dart';
 import 'package:app_beauty/src/views/Login_View.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:app_beauty/src/views/admin_inventarios_view.dart';
 import 'package:another_flushbar/flushbar.dart';
 
 class MiPerfilAdmin extends StatefulWidget {
@@ -108,6 +107,19 @@ class _MiPerfilAdminState extends State<MiPerfilAdmin> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             children: [
+              // Top gradient bar for visual consistency
+              Container(
+                width: double.infinity,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [gradientStart, gradientEnd],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               // Logo (misma estética que mi_perfil_view)
               Container(
                 padding: const EdgeInsets.only(top: 20, bottom: 10),
@@ -214,51 +226,6 @@ class _MiPerfilAdminState extends State<MiPerfilAdmin> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    // Consultar Inventarios
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const AdminInventariosView()),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          elevation: 5,
-                          shadowColor: Colors.grey.withOpacity(0.5),
-                        ),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [gradientStart, gradientEnd],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Container(
-                            alignment: Alignment.center,
-                            constraints: const BoxConstraints(minHeight: 50),
-                            child: Text(
-                              'Consultar Inventarios',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 12),
                     // Divider visual
                     Container(height: 1, color: Colors.grey.shade200),

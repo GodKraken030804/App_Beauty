@@ -1261,11 +1261,6 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
         ),
         items: [
           FabItem(
-            label: 'Descargar asignada',
-            icon: Icons.file_download_outlined,
-            onTap: _downloadAssignedExcel,
-          ),
-          FabItem(
             label: 'Importar lista',
             icon: Icons.upload_file,
             onTap: _importFile,

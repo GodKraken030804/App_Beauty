@@ -127,7 +127,7 @@ class _MiPerfilPedidosViewState extends State<MiPerfilPedidosView> {
         flushbarPosition: FlushbarPosition.TOP,
         icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
         titleText: Text(
-          'Imagen cargada',
+          "Imagen cargada",
           style: GoogleFonts.poppins(
             fontSize: 20,
             color: Colors.white,
@@ -135,13 +135,37 @@ class _MiPerfilPedidosViewState extends State<MiPerfilPedidosView> {
           ),
         ),
         messageText: Text(
-          'La imagen de perfil se ha guardado correctamente.',
+          "La imagen de perfil se ha guardado correctamente.",
           style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
         ),
         duration: const Duration(seconds: 3),
         animationDuration: const Duration(milliseconds: 500),
       ).show(context);
     }
+  }
+
+  void _mostrarNotificacionPedidos(BuildContext context) {
+    Flushbar(
+      margin: const EdgeInsets.all(20),
+      borderRadius: BorderRadius.circular(15),
+      backgroundColor: gradientStart,
+      flushbarPosition: FlushbarPosition.TOP,
+      icon: const Icon(Icons.info, color: Colors.white, size: 28),
+      titleText: Text(
+        'Ventas Pedidos',
+        style: GoogleFonts.poppins(
+          fontSize: 20,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      messageText: Text(
+        'Consulta y gestiona tus ventas desde la pantalla Principal.',
+        style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
+      ),
+      duration: const Duration(seconds: 3),
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
   }
 
   @override
@@ -156,6 +180,19 @@ class _MiPerfilPedidosViewState extends State<MiPerfilPedidosView> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             children: [
+              // Top gradient bar for visual consistency
+              Container(
+                width: double.infinity,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [gradientStart, gradientEnd],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.only(top: 20, bottom: 10),
                 child: SizedBox(
@@ -227,6 +264,49 @@ class _MiPerfilPedidosViewState extends State<MiPerfilPedidosView> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    // Acción destacada con el mismo estilo de botones (estética uniforme)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _mostrarNotificacionPedidos(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          elevation: 5,
+                          shadowColor: Colors.grey.withOpacity(0.5),
+                        ),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [gradientStart, gradientEnd],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Container(
+                            alignment: Alignment.center,
+                            constraints: const BoxConstraints(minHeight: 50),
+                            child: Text(
+                              'Ventas Pedidos',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Divider visual para mantener proporciones con otras vistas
+                    Container(height: 1, color: Colors.grey.shade200),
+                    const SizedBox(height: 12),
                     InkWell(
                       onTap: () {
                         Navigator.pushReplacement(

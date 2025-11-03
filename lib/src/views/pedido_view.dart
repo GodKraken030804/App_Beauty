@@ -3,7 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/inventario_view.dart';
-import 'package:app_beauty/src/views/ventas_view.dart';
+// import 'package:app_beauty/src/views/ventas_view.dart';
+import 'package:app_beauty/src/views/pedidos_ventas_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_pedidos_view.dart';
 
 class PedidoView extends StatefulWidget {
@@ -96,7 +97,9 @@ class _PedidoViewState extends State<PedidoView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const ProductosExcelView()),
+                            builder: (_) => const ProductosExcelView(
+                                  pedidoMode: true,
+                                )),
                       );
                     },
                   ),
@@ -108,7 +111,8 @@ class _PedidoViewState extends State<PedidoView> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const VentasView()),
+                        MaterialPageRoute(
+                            builder: (_) => const VentasPedidosView()),
                       );
                     },
                   ),

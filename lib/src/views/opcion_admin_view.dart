@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/widgets/bottom_icon.dart';
+import 'package:app_beauty/src/views/admin_inventarios_view.dart';
 
 class OpcionAdminView extends StatefulWidget {
   const OpcionAdminView({super.key});
@@ -131,8 +132,11 @@ class _OpcionAdminViewState extends State<OpcionAdminView> {
                         _botonOpcion('Administrar Cursos', 'administrarcurso.png', () {
                           // Acción personalizada
                         }),
-                        _botonOpcion('Administrar Encargados', 'administrarencargados.png', () {
-                          // Acción personalizada
+                        _botonOpcion('Consultar Inventarios', 'inventario.png', () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AdminInventariosView()),
+                          );
                         }),
                       ],
                     ),

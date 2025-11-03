@@ -191,6 +191,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _nuevaAsignacion() async {
     try {
       final response = await http.post(
@@ -309,68 +310,84 @@ class _AsignacionesViewState extends State<AsignacionesView> {
         ),
         iconTheme: const IconThemeData(color: Color(0xFFF26AB6)),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFF26AB6)),
-            )
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Error: $_error',
-                        style: GoogleFonts.poppins(
-                          color: Colors.red,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF26AB6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        icon: const Icon(Icons.refresh, color: Colors.white),
-                        onPressed: _cargarAsignaciones,
-                        label: Text(
-                          'Reintentar',
-                          style: GoogleFonts.poppins(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ListView(
-                    children: [
-                      Center(
-                        child: Image.asset(
-                          'assets/images/Logo.png',
-                          height: 180,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 6,
-                              offset: const Offset(2, 4),
+      body: Column(
+        children: [
+          // Top gradient bar for visual consistency
+          Container(
+            width: double.infinity,
+            height: 60,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFF26AB6)),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Error: $_error',
+                              style: GoogleFonts.poppins(
+                                color: Colors.red,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF26AB6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                              icon: const Icon(Icons.refresh, color: Colors.white),
+                              onPressed: _cargarAsignaciones,
+                              label: Text(
+                                'Reintentar',
+                                style: GoogleFonts.poppins(color: Colors.white),
+                              ),
                             ),
                           ],
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: ListView(
                           children: [
+                            Center(
+                              child: Image.asset(
+                                'assets/images/Logo.png',
+                                height: 180,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    blurRadius: 6,
+                                    offset: const Offset(2, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                             Row(
                               children: [
                                 Expanded(
@@ -571,6 +588,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                     ],
                   ),
                 ),
+          ),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

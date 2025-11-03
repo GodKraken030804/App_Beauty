@@ -5,10 +5,10 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/agregar_producto_view.dart';
 import 'package:app_beauty/src/views/inventario_admin_view.dart';
 import 'package:app_beauty/src/views/crear_curso_view.dart';
-import 'package:app_beauty/src/views/encargados_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_admin.dart';
 import 'package:app_beauty/src/views/asignacion_view.dart';
 import 'package:app_beauty/src/views/asignaciones_view.dart';
+import 'package:app_beauty/src/views/admin_inventarios_view.dart';
 
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -76,8 +76,8 @@ class _AdminViewState extends State<AdminView> {
       case "Administrar Cursos":
         destino = const AsignacionesView();
         break;
-      case "Administrar Encargados":
-        destino = const EncargadosView();
+      case "Consultar Inventarios":
+        destino = const AdminInventariosView();
         break;
       case "Agregar Producto":
         destino = const AgregarProductoView();
@@ -129,7 +129,7 @@ class _AdminViewState extends State<AdminView> {
                   _buildMenuButton("Inventario", Icons.inventory),
                   _buildMenuButton("Creación De Curso", Icons.create),
                   _buildMenuButton("Administrar Cursos", Icons.menu_book),
-                  _buildMenuButton("Administrar Encargados", Icons.people),
+                  _buildMenuButton("Consultar Inventarios", Icons.inventory_2),
                   _buildMenuButton("Agregar Producto", Icons.add_box),
                   _buildMenuButton("Asignación", Icons.assignment_ind),
                 ],

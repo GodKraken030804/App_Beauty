@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:file_picker/file_picker.dart';
 import 'package:app_beauty/src/views/mi_perfil_admin.dart';
 import 'package:app_beauty/src/views/admin_view.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http_parser/http_parser.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:another_flushbar/flushbar.dart';
 
@@ -21,7 +18,6 @@ class AsignacionView extends StatefulWidget {
 class _AsignacionViewState extends State<AsignacionView> {
   String? selectedOption1;
   String? selectedOption2;
-  PlatformFile? excelFile;
   int _currentIndex = 0; // para saber en qué tab estamos
   List<dynamic> encargados = [];
   List<dynamic> cursos = [];
@@ -115,22 +111,18 @@ class _AsignacionViewState extends State<AsignacionView> {
         throw Exception('Debe seleccionar un encargado y un curso');
       }
 
-      if (excelFile == null) {
-        throw Exception('Debe seleccionar un archivo Excel');
-      }
-
       // Obtener token
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('token') ?? '';
 
-      if (token == null || token.isEmpty) {
+      if (token.isEmpty) {
         throw Exception('No se encontró el token de autenticación');
       }
 
-  // Preparar URL (normaliza la barra final para evitar concatenaciones incorrectas)
-  final baseUrlRaw = dotenv.env['API_GATEWAY']!.trim();
-  final baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw : '$baseUrlRaw/';
-  final uri = Uri.parse('${baseUrl}asignarcurso/admin');
+  // Endpoint JSON simple (sin archivo) para crear asignación
+  final baseEmpresa = dotenv.env['API_EMPRESA']!.trim();
+  final normalized = baseEmpresa.endsWith('/') ? baseEmpresa : '$baseEmpresa/';
+  final uri = Uri.parse('${normalized}api/v1/asignar-curso');
 
       print('\nDATOS DE LA ASIGNACIÓN:');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -145,66 +137,28 @@ class _AsignacionViewState extends State<AsignacionView> {
           : (encargadoSel['nombre'] ?? 'Sin nombre');
       print('Encargado seleccionado: $encargadoNombre (ID: $selectedOption1)');
       print('ID Curso: $selectedOption2');
-      print(
-          'Archivo: ${excelFile!.name} (${(excelFile!.size / 1024).toStringAsFixed(2)} KB)');
+      // Crear body JSON
+      final body = jsonEncode({
+        'id_curso': selectedOption2,
+        'id_encargado': selectedOption1,
+      });
 
-      // Crear request
-      var request = http.MultipartRequest('POST', uri);
-
-      // Agregar campos form-data
-      request.fields['id_curso'] = selectedOption2!;
-      request.fields['id_encargado'] = selectedOption1!;
-
-  if (kIsWeb) {
-        // Para web usamos los bytes directamente
-        final contentType = excelFile!.name.endsWith('.csv')
-            ? MediaType('text', 'csv')
-            : MediaType('application',
-                'vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
-        print('   └─ Content-Type: ${contentType.mimeType}');
-
-        request.files.add(http.MultipartFile.fromBytes(
-          'excel',
-          excelFile!.bytes!,
-          filename: excelFile!.name,
-          contentType: contentType,
-        ));
-        print('   └─ Tipo de envío: Bytes (Web)');
-      } else {
-        // Para plataformas nativas usamos el path y definimos content-type según extensión
-        final nameLower = excelFile!.name.toLowerCase();
-        final isCsv = nameLower.endsWith('.csv');
-        final mediaType = isCsv
-            ? MediaType('text', 'csv')
-            : MediaType('application',
-                'vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
-        request.files.add(await http.MultipartFile.fromPath(
-          'excel',
-          excelFile!.path!,
-          contentType: mediaType,
-        ));
-        print('   └─ Tipo de envío: Path (Nativo)');
-        print('   └─ Ruta: ${excelFile!.path}');
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      if (token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
       }
 
-      // Agregar token de autorización
-      request.headers['Authorization'] = 'Bearer $token';
+      final response = await http.post(uri, headers: headers, body: body);
+      print('Código de estado: ${response.statusCode}');
+      print('Respuesta: ${response.body}');
 
-      // Enviar request
-      var streamedResponse = await request.send();
-      final respBody = await streamedResponse.stream.bytesToString();
-
-      print('Código de estado: ${streamedResponse.statusCode}');
-      print('Respuesta: $respBody');
-
-      if (streamedResponse.statusCode == 201 ||
-          streamedResponse.statusCode == 200) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         return true;
       } else {
         throw Exception(
-            "Error al asignar curso: ${streamedResponse.statusCode} - $respBody");
+            'Error al asignar curso: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('Error: $e');
@@ -312,19 +266,7 @@ class _AsignacionViewState extends State<AsignacionView> {
         false;
   }
 
-  Future<void> pickExcelFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls', 'csv'],
-      withData: true, // Importante: esto nos da acceso a los bytes del archivo
-    );
-
-    if (result != null) {
-      setState(() {
-        excelFile = result.files.single;
-      });
-    }
-  }
+  // Flujo sin archivo: ya no se requiere seleccionar Excel
 
   @override
   Widget build(BuildContext context) {
@@ -557,73 +499,15 @@ class _AsignacionViewState extends State<AsignacionView> {
                       ),
                     ),
 
-                    // Archivo Excel
-                    InkWell(
-                      onTap: pickExcelFile,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              spreadRadius: 2,
-                              blurRadius: 7,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                transitionBuilder: (Widget child,
-                                    Animation<double> animation) {
-                                  return FadeTransition(
-                                      opacity: animation, child: child);
-                                },
-                                child: Text(
-                                  excelFile != null
-                                      ? "Archivo subido ✓"
-                                      : "Subir archivo Excel",
-                                  key: ValueKey<bool>(excelFile != null),
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    color: excelFile != null
-                                        ? const Color(0xFF4CAF50)
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Icon(
-                                excelFile != null
-                                    ? Icons.check_circle
-                                    : Icons.upload_file,
-                                color: excelFile != null
-                                    ? const Color(0xFF4CAF50)
-                                    : const Color(0xFFF26AB6)),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 10),
 
                     // Botón Asignar de ancho completo (sin botón Cancelar)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
-                          if (selectedOption1 != null &&
-                              selectedOption2 != null &&
-                              excelFile != null) {
+              if (selectedOption1 != null &&
+                selectedOption2 != null) {
                             // Mostrar diálogo de confirmación
                             final confirmado =
                                 await _mostrarDialogoConfirmacion(context);
