@@ -45,9 +45,9 @@ class Gasto {
 }
 
 class GastosView extends StatefulWidget {
-  final Map<String, dynamic> curso;
+  final Map<String, dynamic>? curso;
 
-  const GastosView({super.key, required this.curso});
+  const GastosView({super.key, this.curso});
 
   @override
   State<GastosView> createState() => _GastosViewState();
@@ -78,7 +78,7 @@ class _GastosViewState extends State<GastosView> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  String get _prefsKey => 'gastos_${widget.curso['id']}';
+  String get _prefsKey => 'gastos_${widget.curso?['id'] ?? 'adicionales'}';
 
   Future<void> _loadGastos() async {
     final prefs = await SharedPreferences.getInstance();

@@ -11,8 +11,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:app_beauty/src/views/mi_perfil_view.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Ingreso {
+  final int? id; // Puede ser null para ingresos nuevos
   final String nombre;
   final double monto;
   final String descripcion;
@@ -20,6 +23,7 @@ class Ingreso {
   final DateTime fecha;
 
   Ingreso({
+    this.id,
     required this.nombre,
     required this.monto,
     required this.descripcion,
@@ -28,6 +32,7 @@ class Ingreso {
   });
 
   Map<String, dynamic> toJson() => {
+        if (id != null) 'id': id,
         'nombre': nombre,
         'monto': monto,
         'descripcion': descripcion,
@@ -54,6 +59,7 @@ class Ingreso {
     }
 
     return Ingreso(
+      id: json['id'] as int?,
       nombre: json['nombre'],
       monto: (json['monto'] as num).toDouble(),
       descripcion: json['descripcion'],
@@ -64,9 +70,9 @@ class Ingreso {
 }
 
 class IngresosView extends StatefulWidget {
-  final Map<String, dynamic> curso;
+  final Map<String, dynamic>? curso;
 
-  const IngresosView({super.key, required this.curso});
+  const IngresosView({super.key, this.curso});
 
   @override
   State<IngresosView> createState() => _IngresosViewState();
@@ -98,19 +104,103 @@ class _IngresosViewState extends State<IngresosView>
     super.dispose();
   }
 
-  String get _prefsKey => 'ingresos_${widget.curso['id']}';
+  String get _prefsKey => 'ingresos_${widget.curso?['id'] ?? 'adicionales'}';
+
+  Future<List<Ingreso>> _obtenerIngresosDelServidor() async {
+    try {
+      final baseUrl = dotenv.env['API_EMPRESA'] ?? 'http://184.72.229.57:3002/';
+      final url = Uri.parse('${baseUrl}api/v1/ingreso');
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .map((json) {
+              try {
+                // Convertir el formato del servidor al formato de nuestra app
+                final metodosPago = <String, dynamic>{};
+                double montoTotal = 0.0;
+
+                if (json['metodo_pago'] != null) {
+                  final List<dynamic> metodosPagoList = json['metodo_pago'];
+                  for (var metodo in metodosPagoList) {
+                    if (metodo is Map<String, dynamic>) {
+                      metodo.forEach((key, value) {
+                        final montoValue = value is int
+                            ? value.toDouble()
+                            : (value as num?)?.toDouble() ?? 0.0;
+                        metodosPago[key] = {'monto': montoValue};
+                        montoTotal += montoValue;
+                      });
+                    }
+                  }
+                }
+
+                // Si el monto total no se calculó de metodos_pago, usar el campo monto
+                if (montoTotal == 0.0 && json['monto'] != null) {
+                  final montoValue = json['monto'];
+                  montoTotal = montoValue is int
+                      ? montoValue.toDouble()
+                      : (montoValue as num?)?.toDouble() ?? 0.0;
+                }
+
+                return Ingreso(
+                  id: json['id'] != null ? json['id'] as int : null,
+                  nombre: json['nombre']?.toString() ?? 'Sin nombre',
+                  descripcion:
+                      json['descripcion']?.toString() ?? 'Sin descripción',
+                  monto: montoTotal,
+                  metodosPago: metodosPago.isNotEmpty
+                      ? metodosPago
+                      : {
+                          'Efectivo': {'monto': montoTotal}
+                        },
+                  fecha: json['fecha_registro'] != null
+                      ? DateTime.tryParse(json['fecha_registro'].toString()) ??
+                          DateTime.now()
+                      : DateTime.now(),
+                );
+              } catch (e) {
+                debugPrint(
+                    'Error al procesar ingreso individual: $e, JSON: $json');
+                return null;
+              }
+            })
+            .whereType<Ingreso>()
+            .toList(); // Filtrar nulls
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error al obtener ingresos del servidor: $e');
+      return [];
+    }
+  }
 
   Future<void> _loadIngresos() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString(_prefsKey);
-    if (data != null) {
-      try {
-        final jsonList = jsonDecode(data) as List;
-        setState(() {
-          _ingresos = jsonList.map((e) => Ingreso.fromJson(e)).toList();
-          _total = _ingresos.fold(0.0, (sum, i) => sum + i.monto);
-        });
-      } catch (_) {}
+    // Primero intentar cargar del servidor
+    final ingresosServidor = await _obtenerIngresosDelServidor();
+
+    if (ingresosServidor.isNotEmpty) {
+      setState(() {
+        _ingresos = ingresosServidor;
+        _total = _ingresos.fold(0.0, (sum, i) => sum + i.monto);
+      });
+      // Guardar en local como respaldo
+      _saveIngresos();
+    } else {
+      // Si falla el servidor, cargar de local
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_prefsKey);
+      if (data != null) {
+        try {
+          final jsonList = jsonDecode(data) as List;
+          setState(() {
+            _ingresos = jsonList.map((e) => Ingreso.fromJson(e)).toList();
+            _total = _ingresos.fold(0.0, (sum, i) => sum + i.monto);
+          });
+        } catch (_) {}
+      }
     }
   }
 
@@ -118,6 +208,102 @@ class _IngresosViewState extends State<IngresosView>
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _ingresos.map((i) => i.toJson()).toList();
     await prefs.setString(_prefsKey, jsonEncode(jsonList));
+  }
+
+  Future<int?> _enviarIngresoAlServidor(Ingreso ingreso) async {
+    try {
+      final baseUrl = dotenv.env['API_EMPRESA'] ?? 'http://184.72.229.57:3002/';
+      final url = Uri.parse('${baseUrl}api/v1/ingreso');
+
+      // Convertir metodosPago al formato esperado por el backend
+      final metodoPagoList = <Map<String, dynamic>>[];
+      ingreso.metodosPago.forEach((metodo, data) {
+        final monto = data['monto'];
+        metodoPagoList.add({metodo: monto});
+      });
+
+      final body = {
+        'nombre': ingreso.nombre,
+        'descripcion': ingreso.descripcion,
+        'metodo_pago': metodoPagoList,
+      };
+
+      debugPrint('POST Body: ${jsonEncode(body)}');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      debugPrint('Respuesta POST: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        // Obtener el ID del ingreso creado desde la respuesta
+        final responseData = jsonDecode(response.body);
+        return responseData['id'] as int?;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error al enviar ingreso: $e');
+      return null;
+    }
+  }
+
+  Future<bool> _editarIngresoEnServidor(int id, Ingreso ingreso) async {
+    try {
+      final baseUrl = dotenv.env['API_EMPRESA'] ?? 'http://184.72.229.57:3002/';
+      final url = Uri.parse('${baseUrl}api/v1/ingreso/$id');
+
+      debugPrint('Intentando editar ingreso con ID: $id en URL: $url');
+
+      // Convertir metodosPago al formato esperado por el backend (IGUAL QUE POST)
+      final metodoPagoList = <Map<String, dynamic>>[];
+      ingreso.metodosPago.forEach((metodo, data) {
+        final monto = data['monto'];
+        metodoPagoList.add({metodo: monto});
+      });
+
+      // Body EXACTAMENTE igual que el POST
+      final body = {
+        'nombre': ingreso.nombre,
+        'descripcion': ingreso.descripcion,
+        'metodo_pago': metodoPagoList,
+      };
+
+      debugPrint('Body PUT: ${jsonEncode(body)}');
+
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      debugPrint('Respuesta PUT: ${response.statusCode} - ${response.body}');
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('Error al editar ingreso: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _eliminarIngresoEnServidor(int id) async {
+    try {
+      final baseUrl = dotenv.env['API_EMPRESA'] ?? 'http://184.72.229.57:3002/';
+      final url = Uri.parse('${baseUrl}api/v1/ingreso/$id');
+
+      debugPrint('Intentando eliminar ingreso con ID: $id en URL: $url');
+
+      final response = await http.delete(url);
+
+      debugPrint('Respuesta DELETE: ${response.statusCode} - ${response.body}');
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error al eliminar ingreso: $e');
+      return false;
+    }
   }
 
   void _showNotification(String title, String message) {
@@ -585,7 +771,7 @@ class _IngresosViewState extends State<IngresosView>
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: TextButton(
-                                  onPressed: () {
+                                  onPressed: () async {
                                     final nombre = nombreController.text.trim();
                                     final descripcion =
                                         descripcionController.text.trim();
@@ -649,20 +835,54 @@ class _IngresosViewState extends State<IngresosView>
                                       return;
                                     }
 
-                                    setState(() {
-                                      _ingresos.add(Ingreso(
-                                        nombre: nombre,
-                                        monto: montoTotal,
-                                        descripcion: descripcion,
-                                        metodosPago: metodosPago,
-                                        fecha: DateTime.now(),
-                                      ));
-                                      _total += montoTotal;
-                                    });
-                                    _saveIngresos();
-                                    Navigator.pop(context);
-                                    _showNotification('Ingreso Agregado',
-                                        'El ingreso se ha registrado correctamente.');
+                                    final nuevoIngreso = Ingreso(
+                                      nombre: nombre,
+                                      monto: montoTotal,
+                                      descripcion: descripcion,
+                                      metodosPago: metodosPago,
+                                      fecha: DateTime.now(),
+                                    );
+
+                                    // Enviar al servidor
+                                    int? idGenerado;
+                                    try {
+                                      idGenerado =
+                                          await _enviarIngresoAlServidor(
+                                              nuevoIngreso);
+                                    } catch (e) {
+                                      debugPrint('Error al crear ingreso: $e');
+                                    }
+
+                                    if (idGenerado != null) {
+                                      // Crear el ingreso con el ID del servidor
+                                      final ingresoConId = Ingreso(
+                                        id: idGenerado,
+                                        nombre: nuevoIngreso.nombre,
+                                        monto: nuevoIngreso.monto,
+                                        descripcion: nuevoIngreso.descripcion,
+                                        metodosPago: nuevoIngreso.metodosPago,
+                                        fecha: nuevoIngreso.fecha,
+                                      );
+
+                                      setState(() {
+                                        _ingresos.add(ingresoConId);
+                                        _total += montoTotal;
+                                      });
+                                      _saveIngresos();
+                                      Navigator.pop(context);
+                                      _showNotification('Ingreso Agregado',
+                                          'El ingreso se ha registrado correctamente.');
+                                    } else {
+                                      // Guardar localmente aunque falle el servidor
+                                      setState(() {
+                                        _ingresos.add(nuevoIngreso);
+                                        _total += montoTotal;
+                                      });
+                                      _saveIngresos();
+                                      Navigator.pop(context);
+                                      _showNotification('Guardado Localmente',
+                                          'El ingreso se guardó localmente. Error al conectar con el servidor.');
+                                    }
                                   },
                                   style: TextButton.styleFrom(
                                     foregroundColor: Colors.white,
@@ -694,6 +914,559 @@ class _IngresosViewState extends State<IngresosView>
           );
         },
       ),
+    );
+  }
+
+  void _showEditIngresoDialog(int index) {
+    final ingreso = _ingresos[index];
+    final nombreController = TextEditingController(text: ingreso.nombre);
+    final descripcionController =
+        TextEditingController(text: ingreso.descripcion);
+
+    // Inicializar controladores con valores actuales
+    final montosControllers = {
+      'Efectivo': TextEditingController(
+        text: ingreso.metodosPago['Efectivo']?['monto']?.toString() ?? '',
+      ),
+      'Tarjeta': TextEditingController(
+        text: ingreso.metodosPago['Tarjeta']?['monto']?.toString() ?? '',
+      ),
+      'Transferencia': TextEditingController(
+        text: ingreso.metodosPago['Transferencia']?['monto']?.toString() ?? '',
+      ),
+    };
+    final last4Ctrl = TextEditingController(
+      text: ingreso.metodosPago['Tarjeta']?['last4']?.toString() ?? '',
+    );
+    final last4TransferenciaCtrl = TextEditingController(
+      text: ingreso.metodosPago['Transferencia']?['last4']?.toString() ?? '',
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocalState) {
+          final bottom = MediaQuery.of(context).viewInsets.bottom;
+          return SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottom),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Image.asset(
+                            'assets/images/Logo.png',
+                            height: 60,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: Text(
+                            'Editar ingreso',
+                            style: GoogleFonts.poppins(
+                              color: gradientStart,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Nombre del ingreso
+                        TextField(
+                          controller: nombreController,
+                          decoration: InputDecoration(
+                            labelText: 'Nombre del ingreso',
+                            labelStyle: GoogleFonts.poppins(
+                                color: Colors.grey[600], fontSize: 14),
+                            prefixIcon: const Icon(Icons.trending_up,
+                                color: Color(0xFFF26AB6)),
+                            filled: true,
+                            fillColor: Colors.white,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: gradientStart, width: 1.5),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 14, horizontal: 12),
+                          ),
+                          style: GoogleFonts.poppins(fontSize: 15),
+                        ),
+                        const SizedBox(height: 16),
+                        // Descripción
+                        TextField(
+                          controller: descripcionController,
+                          decoration: InputDecoration(
+                            labelText: 'Descripción del ingreso',
+                            labelStyle: GoogleFonts.poppins(
+                                color: Colors.grey[600], fontSize: 14),
+                            prefixIcon: const Icon(Icons.description,
+                                color: Color(0xFFF26AB6)),
+                            filled: true,
+                            fillColor: Colors.white,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: gradientStart, width: 1.5),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 14, horizontal: 12),
+                          ),
+                          style: GoogleFonts.poppins(fontSize: 15),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 16),
+                        // Métodos de Pago
+                        Text('Métodos de Pago',
+                            style: GoogleFonts.poppins(
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14)),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Column(
+                            children: [
+                              // Efectivo
+                              Row(
+                                children: [
+                                  const Icon(Icons.attach_money,
+                                      size: 20, color: Color(0xFFF26AB6)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                      child: Text('Efectivo',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 14))),
+                                  SizedBox(
+                                    width: 120,
+                                    child: TextField(
+                                      controller: montosControllers['Efectivo'],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                      decoration: InputDecoration(
+                                        prefixText: '\$',
+                                        hintText: '0.00',
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Tarjeta
+                              Row(
+                                children: [
+                                  const Icon(Icons.credit_card,
+                                      size: 20, color: Color(0xFFF26AB6)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Tarjeta',
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 14)),
+                                        if ((double.tryParse(montosControllers[
+                                                        'Tarjeta']!
+                                                    .text
+                                                    .trim()) ??
+                                                0.0) >
+                                            0)
+                                          SizedBox(
+                                            width: 100,
+                                            child: TextField(
+                                              controller: last4Ctrl,
+                                              maxLength: 4,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              style: GoogleFonts.poppins(
+                                                  fontSize: 12),
+                                              decoration: InputDecoration(
+                                                counterText: '',
+                                                hintText: 'Últimos 4',
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 4),
+                                                border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6)),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 120,
+                                    child: TextField(
+                                      controller: montosControllers['Tarjeta'],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                      decoration: InputDecoration(
+                                        prefixText: '\$',
+                                        hintText: '0.00',
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
+                                      ),
+                                      onChanged: (v) => setLocalState(() {}),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Transferencia
+                              Row(
+                                children: [
+                                  const Icon(Icons.swap_horiz,
+                                      size: 20, color: Color(0xFFF26AB6)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Transferencia',
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 14)),
+                                        if ((double.tryParse(montosControllers[
+                                                        'Transferencia']!
+                                                    .text
+                                                    .trim()) ??
+                                                0.0) >
+                                            0)
+                                          SizedBox(
+                                            width: 100,
+                                            child: TextField(
+                                              controller:
+                                                  last4TransferenciaCtrl,
+                                              maxLength: 4,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              style: GoogleFonts.poppins(
+                                                  fontSize: 12),
+                                              decoration: InputDecoration(
+                                                counterText: '',
+                                                hintText: 'Últimos 4',
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 4),
+                                                border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6)),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 120,
+                                    child: TextField(
+                                      controller:
+                                          montosControllers['Transferencia'],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                      decoration: InputDecoration(
+                                        prefixText: '\$',
+                                        hintText: '0.00',
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
+                                      ),
+                                      onChanged: (v) => setLocalState(() {}),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      Border.all(color: Colors.red.shade200),
+                                ),
+                                child: TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text('Cancelar',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.red.shade700)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                      colors: [gradientStart, gradientEnd]),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: TextButton(
+                                  onPressed: () async {
+                                    final nombre = nombreController.text.trim();
+                                    final descripcion =
+                                        descripcionController.text.trim();
+
+                                    if (nombre.isEmpty || descripcion.isEmpty)
+                                      return;
+
+                                    final metodosPago = <String, dynamic>{};
+                                    double montoTotal = 0.0;
+
+                                    for (var metodo in montosControllers.keys) {
+                                      final montoStr =
+                                          montosControllers[metodo]!
+                                              .text
+                                              .trim();
+                                      if (montoStr.isNotEmpty) {
+                                        final monto = double.tryParse(montoStr
+                                                .replaceAll(',', '.')) ??
+                                            0.0;
+                                        if (monto > 0) {
+                                          final metodoPagoData =
+                                              <String, dynamic>{'monto': monto};
+                                          if (metodo == 'Tarjeta') {
+                                            final last4 = last4Ctrl.text.trim();
+                                            if (last4.length == 4)
+                                              metodoPagoData['last4'] = last4;
+                                          } else if (metodo ==
+                                              'Transferencia') {
+                                            final last4 = last4TransferenciaCtrl
+                                                .text
+                                                .trim();
+                                            if (last4.length == 4)
+                                              metodoPagoData['last4'] = last4;
+                                          }
+                                          metodosPago[metodo] = metodoPagoData;
+                                          montoTotal += monto;
+                                        }
+                                      }
+                                    }
+
+                                    if (metodosPago.isEmpty ||
+                                        montoTotal <= 0) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Debes ingresar al menos un método de pago válido',
+                                                style: GoogleFonts.poppins())),
+                                      );
+                                      return;
+                                    }
+
+                                    final ingresoEditado = Ingreso(
+                                      id: ingreso.id,
+                                      nombre: nombre,
+                                      monto: montoTotal,
+                                      descripcion: descripcion,
+                                      metodosPago: metodosPago,
+                                      fecha: ingreso.fecha,
+                                    );
+
+                                    // Editar en servidor
+                                    bool editado = false;
+                                    try {
+                                      editado = ingreso.id != null
+                                          ? await _editarIngresoEnServidor(
+                                              ingreso.id!, ingresoEditado)
+                                          : true;
+                                    } catch (e) {
+                                      debugPrint('Error al editar: $e');
+                                    }
+
+                                    if (editado) {
+                                      setState(() {
+                                        final montoAnterior =
+                                            _ingresos[index].monto;
+                                        _ingresos[index] = ingresoEditado;
+                                        _total =
+                                            _total - montoAnterior + montoTotal;
+                                      });
+                                      _saveIngresos();
+                                      Navigator.pop(context);
+                                      _showNotification('Ingreso Editado',
+                                          'El ingreso se ha actualizado correctamente.');
+                                    } else {
+                                      Navigator.pop(context);
+                                      _showNotification('Error',
+                                          'No se pudo actualizar el ingreso en el servidor.');
+                                    }
+                                  },
+                                  child: Text('Guardar',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _confirmarEliminarIngreso(int index) {
+    final ingreso = _ingresos[index];
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange, size: 50),
+                const SizedBox(height: 16),
+                Text('¿Eliminar ingreso?',
+                    style: GoogleFonts.poppins(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('Esta acción no se puede deshacer',
+                    style:
+                        GoogleFonts.poppins(fontSize: 14, color: Colors.grey)),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text('Cancelar',
+                            style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextButton(
+                          onPressed: () async {
+                            // Cerrar diálogo de confirmación
+                            Navigator.of(context).pop();
+
+                            // Eliminar en servidor
+                            bool eliminado = false;
+                            try {
+                              eliminado = ingreso.id != null
+                                  ? await _eliminarIngresoEnServidor(
+                                      ingreso.id!)
+                                  : true;
+                            } catch (e) {
+                              debugPrint('Error en eliminación: $e');
+                            }
+
+                            // Actualizar UI si eliminó correctamente
+                            if (mounted && eliminado) {
+                              setState(() {
+                                _total -= _ingresos[index].monto;
+                                _ingresos.removeAt(index);
+                              });
+                              _saveIngresos();
+                              _showNotification('Ingreso Eliminado',
+                                  'El ingreso se ha eliminado correctamente.');
+                            } else if (mounted) {
+                              _showNotification('Error',
+                                  'No se pudo eliminar el ingreso del servidor.');
+                            }
+                          },
+                          child: Text('Eliminar',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1149,6 +1922,25 @@ class _IngresosViewState extends State<IngresosView>
                                     'Fecha: ${i.fecha.toLocal().toString().split('.')[0]}',
                                     style: GoogleFonts.poppins(
                                         fontSize: 13, color: Colors.black54),
+                                  ),
+                                ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: Colors.blue),
+                                    onPressed: () =>
+                                        _showEditIngresoDialog(index),
+                                    tooltip: 'Editar',
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () =>
+                                        _confirmarEliminarIngreso(index),
+                                    tooltip: 'Eliminar',
                                   ),
                                 ],
                               ),

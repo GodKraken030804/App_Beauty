@@ -9,10 +9,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'options_view.dart';
-import 'gastos_cursos_view.dart'; 
+import 'gastos_view.dart';
 import 'Login_View.dart';
-import 'ingresos_cursos_view.dart'; // NUEVO
-
+import 'ingresos_view.dart';
 
 class MiPerfilView extends StatefulWidget {
   const MiPerfilView({super.key});
@@ -239,7 +238,8 @@ class _MiPerfilViewState extends State<MiPerfilView> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const GastosCursosView()), 
+                            MaterialPageRoute(
+                                builder: (_) => const GastosView()),
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -289,7 +289,8 @@ class _MiPerfilViewState extends State<MiPerfilView> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const IngresosCursosView()),
+                            MaterialPageRoute(
+                                builder: (_) => const IngresosView()),
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -337,8 +338,7 @@ class _MiPerfilViewState extends State<MiPerfilView> {
                       onTap: () {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(
-                              builder: (_) => const LoginView()),
+                          MaterialPageRoute(builder: (_) => const LoginView()),
                         );
                       },
                       child: Text(
