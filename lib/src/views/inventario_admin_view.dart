@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:app_beauty/src/views/admin_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_admin.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:html' as html;
 
 class InventarioView extends StatefulWidget {
   const InventarioView({super.key});
@@ -731,18 +733,67 @@ class _InventarioViewState extends State<InventarioView> {
 
   Future<void> _exportarExcel() async {
     final archivoExcel = excel.Excel.createExcel();
-    final sheet = archivoExcel['Inventario'];
-    sheet.appendRow(['Nombre', 'Cantidad']);
-    for (var p in productos) {
-      sheet.appendRow([p['nombre'], p['cantidad']]);
+
+    // Eliminar todas las hojas predeterminadas
+    for (var table in archivoExcel.tables.keys.toList()) {
+      archivoExcel.delete(table);
     }
 
-    final directory = await getApplicationDocumentsDirectory();
-    final path = '${directory.path}/inventario.xlsx';
-    final file = File(path);
-    file.writeAsBytesSync(archivoExcel.encode()!);
+    // Crear solo la hoja de Inventario
+    final sheet = archivoExcel['Inventario'];
 
-    await Share.shareXFiles([XFile(path)], text: 'Inventario App Beauty');
+    // Encabezados: Nombre, Precio, Precio Unitario, Cantidad
+    sheet.appendRow([
+      'Nombre',
+      'Precio',
+      'Precio Unitario',
+      'Cantidad',
+    ]);
+
+    // Agregar productos con la información solicitada
+    for (var p in productos) {
+      final cantidad = p['cantidad']?.toString() ?? '0';
+      final precio =
+          p['precio']?.toString() ?? '0'; // Precio normal del producto
+      final precioUnitario =
+          p['precioUnitario']?.toString() ?? '0'; // Precio por unidad
+
+      sheet.appendRow([
+        p['nombre']?.toString() ?? '',
+        precio, // Precio normal (ej: 200)
+        precioUnitario, // Precio unitario (ej: 100)
+        cantidad,
+      ]);
+    }
+
+    final excelBytes = archivoExcel.encode()!;
+
+    if (kIsWeb) {
+      // Descargar en web usando blob
+      final blob = html.Blob([excelBytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', 'inventario.xlsx')
+        ..click();
+      html.Url.revokeObjectUrl(url);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Inventario descargado', style: GoogleFonts.poppins()),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else {
+      // Descargar en móvil/desktop
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/inventario.xlsx';
+      final file = File(path);
+      file.writeAsBytesSync(excelBytes);
+      await Share.shareXFiles([XFile(path)], text: 'Inventario App Beauty');
+    }
   }
 
   void _mostrarHistorial() {
@@ -857,23 +908,11 @@ class _InventarioViewState extends State<InventarioView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton(
-            heroTag: 'historial',
-            backgroundColor: const Color(0xFFAA57EC),
-            onPressed: _mostrarHistorial,
-            child: const Icon(Icons.history),
-          ),
-          const SizedBox(height: 10),
-          FloatingActionButton(
-            heroTag: 'exportar',
-            backgroundColor: const Color(0xFFF26AB6),
-            onPressed: _mostrarExportarInventarioDialog,
-            child: const Icon(Icons.file_download),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'exportar',
+        backgroundColor: const Color(0xFFF26AB6),
+        onPressed: _mostrarExportarInventarioDialog,
+        child: const Icon(Icons.file_download),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

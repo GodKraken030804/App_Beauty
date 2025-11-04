@@ -51,13 +51,23 @@ class _AsignacionViewState extends State<AsignacionView> {
   }
 
   Future<void> _loadCursos() async {
+    setState(() {
+      isLoadingCursos = true;
+      cursos = []; // Limpiar lista antes de recargar
+    });
     try {
       final data = await _fetchCursos();
+      print('🔄 Cursos cargados desde servidor: ${data.length}');
+      for (var curso in data) {
+        print(
+            '  - Curso ID ${curso['id']}: ${curso['nombre']} - ${curso['ciudad']}');
+      }
       setState(() {
         cursos = data;
         isLoadingCursos = false;
       });
     } catch (e) {
+      print('❌ Error al cargar cursos: $e');
       setState(() {
         isLoadingCursos = false;
       });
@@ -75,10 +85,7 @@ class _AsignacionViewState extends State<AsignacionView> {
       final data = jsonDecode(response.body);
       print(' Datos recibidos: ${data.length} registros');
       final encargadosFiltrados = data.where((u) {
-        final usuario = (u['usuario'] ?? '')
-            .toString()
-            .toLowerCase()
-            .trim();
+        final usuario = (u['usuario'] ?? '').toString().toLowerCase().trim();
         // Solo mostrar usuarios con rol Encargado para evitar asignaciones incorrectas
         return usuario == 'encargado';
       }).toList();
@@ -90,17 +97,20 @@ class _AsignacionViewState extends State<AsignacionView> {
   }
 
   Future<List> _fetchCursos() async {
-    print(' Iniciando fetch de cursos...');
+    print('🌐 Iniciando fetch de cursos...');
     final url = Uri.parse('${dotenv.env['API_EMPRESA']!.trim()}api/v1/curso');
-    print(' URL de la API cursos: $url');
-    final response = await http.get(url);
-    print(' Status Code cursos: ${response.statusCode}');
+    print('🌐 URL de la API cursos: $url');
+    final response = await http.get(url, headers: {
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+    });
+    print('📡 Status Code cursos: ${response.statusCode}');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      print('Cursos recibidos: ${data.length}');
+      print('✅ Cursos recibidos del servidor: ${data.length}');
       return data;
     }
-    print(' Error al obtener cursos');
+    print('❌ Error al obtener cursos - Status: ${response.statusCode}');
     return [];
   }
 
@@ -119,10 +129,11 @@ class _AsignacionViewState extends State<AsignacionView> {
         throw Exception('No se encontró el token de autenticación');
       }
 
-  // Endpoint JSON simple (sin archivo) para crear asignación
-  final baseEmpresa = dotenv.env['API_EMPRESA']!.trim();
-  final normalized = baseEmpresa.endsWith('/') ? baseEmpresa : '$baseEmpresa/';
-  final uri = Uri.parse('${normalized}api/v1/asignar-curso');
+      // Endpoint JSON simple (sin archivo) para crear asignación
+      final baseEmpresa = dotenv.env['API_EMPRESA']!.trim();
+      final normalized =
+          baseEmpresa.endsWith('/') ? baseEmpresa : '$baseEmpresa/';
+      final uri = Uri.parse('${normalized}api/v1/asignar-curso');
 
       print('\nDATOS DE LA ASIGNACIÓN:');
       print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -285,6 +296,25 @@ class _AsignacionViewState extends State<AsignacionView> {
                     colors: gradientColors,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh,
+                          color: Colors.white, size: 28),
+                      onPressed: () {
+                        setState(() {
+                          isLoadingCursos = true;
+                          isLoadingEncargados = true;
+                        });
+                        _loadCursos();
+                        _loadEncargados();
+                      },
+                      tooltip: 'Recargar datos',
+                    ),
                   ),
                 ),
               ),
@@ -506,8 +536,8 @@ class _AsignacionViewState extends State<AsignacionView> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
-              if (selectedOption1 != null &&
-                selectedOption2 != null) {
+                          if (selectedOption1 != null &&
+                              selectedOption2 != null) {
                             // Mostrar diálogo de confirmación
                             final confirmado =
                                 await _mostrarDialogoConfirmacion(context);

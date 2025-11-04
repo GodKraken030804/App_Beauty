@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:app_beauty/src/views/widgets/bottom_icon.dart';
 import 'package:app_beauty/src/views/admin_inventarios_view.dart';
+import 'cursos_view.dart';
 
 class OpcionAdminView extends StatefulWidget {
   const OpcionAdminView({super.key});
@@ -22,7 +23,8 @@ class _OpcionAdminViewState extends State<OpcionAdminView> {
 
   Future<void> _verificarNotificacion() async {
     final prefs = await SharedPreferences.getInstance();
-    final yaMostrada = prefs.getBool('notificacion_mostrada_opcion_admin') ?? false;
+    final yaMostrada =
+        prefs.getBool('notificacion_mostrada_opcion_admin') ?? false;
 
     if (!yaMostrada && mounted) {
       _mostrarNotificacionExitosa(context);
@@ -39,7 +41,8 @@ class _OpcionAdminViewState extends State<OpcionAdminView> {
       icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
       titleText: const Text(
         "¡Bienvenido!",
-        style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+            fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
       ),
       messageText: const Text(
         "Inicio de sesión exitoso.",
@@ -50,7 +53,8 @@ class _OpcionAdminViewState extends State<OpcionAdminView> {
     ).show(context);
   }
 
-  Widget _botonOpcion(String titulo, String imagen, VoidCallback onTap) {
+  Widget _botonOpcion(String titulo, String imagen, VoidCallback onTap,
+      {IconData? icono}) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -72,7 +76,9 @@ class _OpcionAdminViewState extends State<OpcionAdminView> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                Image.asset('assets/$imagen', height: 60),
+                icono != null
+                    ? Icon(icono, size: 60, color: Colors.white)
+                    : Image.asset('assets/$imagen', height: 60),
                 const SizedBox(height: 10),
                 Text(
                   titulo,
@@ -120,7 +126,8 @@ class _OpcionAdminViewState extends State<OpcionAdminView> {
                         _botonOpcion('Inventario', 'inventario.png', () {
                           Navigator.pushNamed(context, '/inventario');
                         }),
-                        _botonOpcion('Creación De Curso', 'creacioncurso.png', () {
+                        _botonOpcion('Creación De Curso', 'creacioncurso.png',
+                            () {
                           // Acción personalizada
                         }),
                       ],
@@ -129,21 +136,36 @@ class _OpcionAdminViewState extends State<OpcionAdminView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _botonOpcion('Administrar Cursos', 'administrarcurso.png', () {
+                        _botonOpcion(
+                            'Administrar Cursos', 'administrarcurso.png', () {
                           // Acción personalizada
                         }),
-                        _botonOpcion('Consultar Inventarios', 'inventario.png', () {
+                        _botonOpcion('Consultar Inventarios', 'inventario.png',
+                            () {
                           Navigator.pushReplacement(
                             context,
-                            MaterialPageRoute(builder: (_) => const AdminInventariosView()),
+                            MaterialPageRoute(
+                                builder: (_) => const AdminInventariosView()),
                           );
                         }),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _botonOpcion('Historiales', 'historiales.png', () {
-                      // Acción personalizada
-                    }),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _botonOpcion('Ver Cursos', 'acceso.png', () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const CursosView()),
+                          );
+                        }, icono: Icons.school),
+                        _botonOpcion('Historiales', 'historiales.png', () {
+                          // Acción personalizada
+                        }),
+                      ],
+                    ),
                   ],
                 ),
               ),

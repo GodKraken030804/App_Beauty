@@ -4,26 +4,40 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'options_view.dart';
+import 'mi_perfil_view.dart';
 
 // Modelo de asignación
 class AsignacionModel {
-  final int id;
-  final int idCurso;
-  final int idEncargado;
+  final int? id;
+  final int? idCurso;
+  final int? idEncargado;
   final String? excel;
 
   AsignacionModel({
-    required this.id,
-    required this.idCurso,
-    required this.idEncargado,
+    this.id,
+    this.idCurso,
+    this.idEncargado,
     this.excel,
   });
 
   factory AsignacionModel.fromJson(Map<String, dynamic> json) {
     return AsignacionModel(
-      id: json['id'],
-      idCurso: json['id_curso'],
-      idEncargado: json['id_encargado'],
+      id: json['id'] != null
+          ? (json['id'] is int
+              ? json['id']
+              : int.tryParse(json['id'].toString()))
+          : null,
+      idCurso: json['id_curso'] != null
+          ? (json['id_curso'] is int
+              ? json['id_curso']
+              : int.tryParse(json['id_curso'].toString()))
+          : null,
+      idEncargado: json['id_encargado'] != null
+          ? (json['id_encargado'] is int
+              ? json['id_encargado']
+              : int.tryParse(json['id_encargado'].toString()))
+          : null,
       excel: json['excel'],
     );
   }
@@ -300,15 +314,17 @@ class _AsignacionesViewState extends State<AsignacionesView> {
         backgroundColor: Colors.white,
         elevation: 2,
         centerTitle: true,
-        title: Text(
-          'Asignaciones',
-          style: GoogleFonts.poppins(
-            color: const Color(0xFFF26AB6),
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
-        ),
         iconTheme: const IconThemeData(color: Color(0xFFF26AB6)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFFF26AB6)),
+            onPressed: () {
+              _cargarAsignaciones();
+              _cargarCatalogos();
+            },
+            tooltip: 'Recargar',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -453,7 +469,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                                   const SizedBox(width: 12),
                                                   Expanded(
                                                     child: Text(
-                                                      "Asignación ${asig.id}",
+                                                      "Asignación ${asig.id ?? 'N/A'}",
                                                       style:
                                                           GoogleFonts.poppins(
                                                         fontWeight:
@@ -473,11 +489,12 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                                   const SizedBox(width: 8),
                                                   Expanded(
                                                     child: Text(
-                                                      _cursosNombres
-                                                              .containsKey(
-                                                                  asig.idCurso)
+                                                      asig.idCurso != null &&
+                                                              _cursosNombres
+                                                                  .containsKey(
+                                                                      asig.idCurso)
                                                           ? 'Curso: ${_cursosNombres[asig.idCurso]}'
-                                                          : 'Curso ID: ${asig.idCurso}',
+                                                          : 'Curso ID: ${asig.idCurso ?? 'N/A'}',
                                                       style:
                                                           GoogleFonts.poppins(
                                                         fontSize: 16,
@@ -496,11 +513,13 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                                   const SizedBox(width: 8),
                                                   Expanded(
                                                     child: Text(
-                                                      _encargadosNombres
-                                                              .containsKey(asig
-                                                                  .idEncargado)
+                                                      asig.idEncargado !=
+                                                                  null &&
+                                                              _encargadosNombres
+                                                                  .containsKey(asig
+                                                                      .idEncargado)
                                                           ? 'Encargado: ${_encargadosNombres[asig.idEncargado]}'
-                                                          : 'Encargado ID: ${asig.idEncargado}',
+                                                          : 'Encargado ID: ${asig.idEncargado ?? 'N/A'}',
                                                       style:
                                                           GoogleFonts.poppins(
                                                         fontSize: 16,
@@ -515,9 +534,11 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                               SizedBox(
                                                 width: double.infinity,
                                                 child: ElevatedButton.icon(
-                                                  onPressed: () =>
-                                                      _eliminarAsignacion(
-                                                          asig.id),
+                                                  onPressed: asig.id != null
+                                                      ? () =>
+                                                          _eliminarAsignacion(
+                                                              asig.id!)
+                                                      : null,
                                                   style:
                                                       ElevatedButton.styleFrom(
                                                     backgroundColor:
@@ -577,6 +598,20 @@ class _AsignacionesViewState extends State<AsignacionesView> {
             elevation: 0,
             selectedItemColor: Colors.white,
             unselectedItemColor: Colors.white70,
+            currentIndex: 0,
+            onTap: (index) {
+              if (index == 0) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OptionsView()),
+                );
+              } else if (index == 1) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                );
+              }
+            },
             items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.home),
