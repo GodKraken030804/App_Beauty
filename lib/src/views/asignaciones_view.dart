@@ -10,13 +10,13 @@ class AsignacionModel {
   final int id;
   final int idCurso;
   final int idEncargado;
-  final String excel;
+  final String? excel;
 
   AsignacionModel({
     required this.id,
     required this.idCurso,
     required this.idEncargado,
-    required this.excel,
+    this.excel,
   });
 
   factory AsignacionModel.fromJson(Map<String, dynamic> json) {
@@ -350,7 +350,8 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
-                              icon: const Icon(Icons.refresh, color: Colors.white),
+                              icon: const Icon(Icons.refresh,
+                                  color: Colors.white),
                               onPressed: _cargarAsignaciones,
                               label: Text(
                                 'Reintentar',
@@ -388,206 +389,172 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Asignaciones Registradas',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFFF26AB6),
-                                    ),
-                                  ),
-                                ),
-                                if (_loadingCatalogos)
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Color(0xFFF26AB6)),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            if (_asignaciones.isEmpty)
-                              const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: Text(
-                                    'No hay asignaciones disponibles',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ),
-                              )
-                            else
-                              ..._asignaciones.map(
-                                (asig) => Card(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  elevation: 4,
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 10),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            CircleAvatar(
-                                              backgroundColor:
-                                                  const Color(0xFFF26AB6),
-                                              child: const Icon(Icons.school,
-                                                  color: Colors.white),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                "Asignación ${asig.id}",
-                                                style: GoogleFonts.poppins(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 18,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Asignaciones Registradas',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFFF26AB6),
+                                          ),
                                         ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.class_,
-                                                color: Color(0xFFF26AB6)),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                _cursosNombres.containsKey(
-                                                        asig.idCurso)
-                                                    ? 'Curso: ${_cursosNombres[asig.idCurso]}'
-                                                    : 'Curso ID: ${asig.idCurso}',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
+                                      ),
+                                      if (_loadingCatalogos)
+                                        const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Color(0xFFF26AB6)),
+                                          ),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.person,
-                                                color: Color(0xFFF26AB6)),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                _encargadosNombres.containsKey(
-                                                        asig.idEncargado)
-                                                    ? 'Encargado: ${_encargadosNombres[asig.idEncargado]}'
-                                                    : 'Encargado ID: ${asig.idEncargado}',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (_asignaciones.isEmpty)
+                                    const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(8.0),
+                                        child: Text(
+                                          'No hay asignaciones disponibles',
+                                          style: TextStyle(color: Colors.grey),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.description,
-                                                color: Color(0xFFF26AB6)),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                "Excel: ${asig.excel}",
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
+                                      ),
+                                    )
+                                  else
+                                    ..._asignaciones.map(
+                                      (asig) => Card(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(15),
                                         ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: ElevatedButton.icon(
-                                                onPressed: () =>
-                                                    _actualizarExcel(
-                                                  asig.id,
-                                                  asig.idCurso,
-                                                  asig.idEncargado,
-                                                ),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xFFF26AB6),
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets
-                                                      .symmetric(vertical: 12),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            15),
+                                        elevation: 4,
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 10),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  CircleAvatar(
+                                                    backgroundColor:
+                                                        const Color(0xFFF26AB6),
+                                                    child: const Icon(
+                                                        Icons.school,
+                                                        color: Colors.white),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text(
+                                                      "Asignación ${asig.id}",
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 18,
+                                                        color: Colors.black87,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.class_,
+                                                      color: Color(0xFFF26AB6)),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      _cursosNombres
+                                                              .containsKey(
+                                                                  asig.idCurso)
+                                                          ? 'Curso: ${_cursosNombres[asig.idCurso]}'
+                                                          : 'Curso ID: ${asig.idCurso}',
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                        fontSize: 16,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.person,
+                                                      color: Color(0xFFF26AB6)),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      _encargadosNombres
+                                                              .containsKey(asig
+                                                                  .idEncargado)
+                                                          ? 'Encargado: ${_encargadosNombres[asig.idEncargado]}'
+                                                          : 'Encargado ID: ${asig.idEncargado}',
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                        fontSize: 16,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                              SizedBox(
+                                                width: double.infinity,
+                                                child: ElevatedButton.icon(
+                                                  onPressed: () =>
+                                                      _eliminarAsignacion(
+                                                          asig.id),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        Colors.red.shade600,
+                                                    foregroundColor:
+                                                        Colors.white,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        vertical: 12),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              15),
+                                                    ),
+                                                  ),
+                                                  icon: const Icon(
+                                                      Icons.delete_outline,
+                                                      size: 18),
+                                                  label: Text(
+                                                    'Eliminar',
+                                                    style:
+                                                        GoogleFonts.poppins(),
                                                   ),
                                                 ),
-                                                icon: const Icon(
-                                                    Icons.upload_file,
-                                                    size: 18),
-                                                label: Text(
-                                                  'Actualizar Excel',
-                                                  style: GoogleFonts.poppins(),
-                                                ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: ElevatedButton.icon(
-                                                onPressed: () =>
-                                                    _eliminarAsignacion(
-                                                        asig.id),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.red.shade600,
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets
-                                                      .symmetric(vertical: 12),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            15),
-                                                  ),
-                                                ),
-                                                icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    size: 18),
-                                                label: Text(
-                                                  'Eliminar',
-                                                  style: GoogleFonts.poppins(),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ),
+                                ],
                               ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
           ),
         ],
       ),
