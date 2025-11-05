@@ -742,13 +742,16 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
                       child: TextButton.icon(
                         style: TextButton.styleFrom(
                           foregroundColor: gradientColors.first,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         onPressed: _abrirArmarPaquete,
                         icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                        label: Text('Armar', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                        label: Text('Armar',
+                            style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ],
@@ -808,51 +811,55 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
             topRight: Radius.circular(25),
           ),
         ),
-        child: SizedBox(
-          height: 70,
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            currentIndex: 0,
-            onTap: (index) {
-              if (index == 0) {
-                if (widget.pedidoMode) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PedidoView()),
-                  );
-                } else {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const OptionsView()),
-                  );
+        child: SafeArea(
+          child: SizedBox(
+            height: 65,
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: 0,
+              onTap: (index) {
+                if (index == 0) {
+                  if (widget.pedidoMode) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PedidoView()),
+                    );
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OptionsView()),
+                    );
+                  }
+                } else if (index == 1) {
+                  if (widget.pedidoMode) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const MiPerfilPedidosView()),
+                    );
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                    );
+                  }
                 }
-              } else if (index == 1) {
-                if (widget.pedidoMode) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MiPerfilPedidosView()),
-                  );
-                } else {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MiPerfilView()),
-                  );
-                }
-              }
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Inicio',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: 'Perfil',
-              ),
-            ],
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: 'Inicio',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'Perfil',
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -922,7 +929,8 @@ extension on _ProductosExcelViewState {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error al agregar un producto del paquete (${res.statusCode})'),
+              content: Text(
+                  'Error al agregar un producto del paquete (${res.statusCode})'),
               backgroundColor: Colors.red.shade400,
             ),
           );
@@ -933,7 +941,8 @@ extension on _ProductosExcelViewState {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Paquete agregado: ${items.length} productos, total \$${totalPaquete.toStringAsFixed(2)}'),
+          content: Text(
+              'Paquete agregado: ${items.length} productos, total \$${totalPaquete.toStringAsFixed(2)}'),
           backgroundColor: gradientColors.last,
         ),
       );
@@ -1000,8 +1009,8 @@ class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
         foregroundColor: widget.colors.first,
         elevation: 0,
         title: Text('Armar paquete',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600,
-                color: widget.colors.first)),
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600, color: widget.colors.first)),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -1045,11 +1054,15 @@ class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: const [
-                          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))
+                          BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: Offset(0, 3))
                         ],
                       ),
                       child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
                         leading: Checkbox(
                           value: selCant > 0,
                           onChanged: enabled
@@ -1062,23 +1075,28 @@ class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
                         ),
                         title: Text(
                           (p['nombre'] ?? '').toString(),
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          style:
+                              GoogleFonts.poppins(fontWeight: FontWeight.w600),
                         ),
-                        subtitle: Text('Stock: $stock', style: GoogleFonts.poppins(color: Colors.grey[700])),
+                        subtitle: Text('Stock: $stock',
+                            style:
+                                GoogleFonts.poppins(color: Colors.grey[700])),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.remove_circle_outline),
                               onPressed: enabled && selCant > 0
-                                  ? () => setState(() => _cantidades[id] = (selCant - 1).clamp(0, stock))
+                                  ? () => setState(() => _cantidades[id] =
+                                      (selCant - 1).clamp(0, stock))
                                   : null,
                             ),
                             Text('$selCant'),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline),
                               onPressed: enabled && selCant < stock
-                                  ? () => setState(() => _cantidades[id] = (selCant + 1).clamp(0, stock))
+                                  ? () => setState(() => _cantidades[id] =
+                                      (selCant + 1).clamp(0, stock))
                                   : null,
                             ),
                           ],
@@ -1101,9 +1119,13 @@ class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           side: BorderSide(color: widget.colors.first),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: Text('Cancelar', style: GoogleFonts.poppins(color: widget.colors.first, fontWeight: FontWeight.w600)),
+                        child: Text('Cancelar',
+                            style: GoogleFonts.poppins(
+                                color: widget.colors.first,
+                                fontWeight: FontWeight.w600)),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1118,13 +1140,19 @@ class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
                                     final prod = widget.productos.firstWhere(
                                       (p) {
                                         final r = p['id'];
-                                        final int pid = (r is int) ? r : int.tryParse(r?.toString() ?? '') ?? -1;
+                                        final int pid = (r is int)
+                                            ? r
+                                            : int.tryParse(
+                                                    r?.toString() ?? '') ??
+                                                -1;
                                         return pid == entry.key;
                                       },
                                       orElse: () => null,
                                     );
                                     if (prod != null) {
-                                      sel.add(_PaqueteItem(producto: prod as Map, cantidad: entry.value));
+                                      sel.add(_PaqueteItem(
+                                          producto: prod as Map,
+                                          cantidad: entry.value));
                                     }
                                   }
                                 }
@@ -1134,7 +1162,8 @@ class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Ink(
                           decoration: BoxDecoration(
@@ -1146,7 +1175,8 @@ class _ArmarPaquetePageState extends State<_ArmarPaquetePage> {
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Text('Agregar (${itemsSel})',
                                 style: GoogleFonts.poppins(
-                                    color: Colors.white, fontWeight: FontWeight.w700)),
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700)),
                           ),
                         ),
                       ),

@@ -28,7 +28,7 @@ class _RegistrarAlumnasNuevasViewState
   // Soporte de pagos múltiples
   bool _usarMultiples = false;
   bool _selEfectivo = false;
-  bool _selTransfer = false; 
+  bool _selTransfer = false;
   bool _selTarjeta = false;
   final TextEditingController _effCtrl = TextEditingController();
   final TextEditingController _trfCtrl = TextEditingController();
@@ -167,11 +167,13 @@ class _RegistrarAlumnasNuevasViewState
                         contentPadding: EdgeInsets.zero,
                         title: Text(
                           'Registrar pagos múltiples',
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          style:
+                              GoogleFonts.poppins(fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(
                           'Activa para dividir el pago en varios métodos',
-                          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[700]),
+                          style: GoogleFonts.poppins(
+                              fontSize: 12, color: Colors.grey[700]),
                         ),
                         value: _usarMultiples,
                         activeColor: _gradientStart,
@@ -202,7 +204,8 @@ class _RegistrarAlumnasNuevasViewState
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Selecciona los métodos de pago',
-                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                                  style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600)),
                               const SizedBox(height: 6),
                               Wrap(
                                 spacing: 8,
@@ -210,26 +213,32 @@ class _RegistrarAlumnasNuevasViewState
                                   FilterChip(
                                     label: const Text('Efectivo'),
                                     selected: _selEfectivo,
-                                    onSelected: (v) => setState(() => _selEfectivo = v),
+                                    onSelected: (v) =>
+                                        setState(() => _selEfectivo = v),
                                     selectedColor: Colors.green.shade50,
                                     checkmarkColor: Colors.green,
-                                    avatar: Icon(Icons.payments_rounded, color: Colors.green.shade700, size: 18),
+                                    avatar: Icon(Icons.payments_rounded,
+                                        color: Colors.green.shade700, size: 18),
                                   ),
                                   FilterChip(
                                     label: const Text('Transferencia'),
                                     selected: _selTransfer,
-                                    onSelected: (v) => setState(() => _selTransfer = v),
+                                    onSelected: (v) =>
+                                        setState(() => _selTransfer = v),
                                     selectedColor: Colors.blue.shade50,
                                     checkmarkColor: Colors.blueAccent,
-                                    avatar: const Icon(Icons.account_balance, color: Colors.blueAccent, size: 18),
+                                    avatar: const Icon(Icons.account_balance,
+                                        color: Colors.blueAccent, size: 18),
                                   ),
                                   FilterChip(
                                     label: const Text('Tarjeta'),
                                     selected: _selTarjeta,
-                                    onSelected: (v) => setState(() => _selTarjeta = v),
+                                    onSelected: (v) =>
+                                        setState(() => _selTarjeta = v),
                                     selectedColor: Colors.deepPurple.shade50,
                                     checkmarkColor: Colors.deepPurple,
-                                    avatar: const Icon(Icons.credit_card, color: Colors.deepPurple, size: 18),
+                                    avatar: const Icon(Icons.credit_card,
+                                        color: Colors.deepPurple, size: 18),
                                   ),
                                 ],
                               ),
@@ -260,7 +269,8 @@ class _RegistrarAlumnasNuevasViewState
                               const SizedBox(height: 6),
                               Text(
                                 'Tip: El campo "Total de pago" se calculará automáticamente con la suma de los montos.',
-                                style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[700]),
+                                style: GoogleFonts.poppins(
+                                    fontSize: 12, color: Colors.grey[700]),
                               )
                             ],
                           ),
@@ -416,9 +426,8 @@ class _RegistrarAlumnasNuevasViewState
                                     _metodoPago = value!;
                                   });
                                 },
-                                validator: (v) => v == null
-                                    ? "Seleccione un método"
-                                    : null,
+                                validator: (v) =>
+                                    v == null ? "Seleccione un método" : null,
                               )
                             : Padding(
                                 padding: const EdgeInsets.all(14.0),
@@ -549,33 +558,36 @@ class _RegistrarAlumnasNuevasViewState
             end: Alignment.bottomRight,
           ),
         ),
-        child: SizedBox(
-          height: 70,
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            onTap: (index) {
-              if (index == 0) {
-                Navigator.pop(context);
-              } else if (index == 1) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MiPerfilView()),
-                );
-              }
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.arrow_back),
-                label: "Regresar",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: "Mi Perfil",
-              ),
-            ],
+        child: SafeArea(
+          child: SizedBox(
+            height: 65,
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              type: BottomNavigationBarType.fixed,
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pop(context);
+                } else if (index == 1) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                  );
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.arrow_back),
+                  label: "Regresar",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: "Mi Perfil",
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -662,14 +674,24 @@ class _RegistrarAlumnasNuevasViewState
           if (_selTransfer) {
             final a = double.tryParse(_trfCtrl.text.trim()) ?? 0;
             total += a;
-            parts.add({'method': 'Transferencia', 'amount': a, 'last4': _trfLastCtrl.text.trim()});
-            if (_trfLastCtrl.text.trim().isNotEmpty) digitosResumen = _trfLastCtrl.text.trim();
+            parts.add({
+              'method': 'Transferencia',
+              'amount': a,
+              'last4': _trfLastCtrl.text.trim()
+            });
+            if (_trfLastCtrl.text.trim().isNotEmpty)
+              digitosResumen = _trfLastCtrl.text.trim();
           }
           if (_selTarjeta) {
             final a = double.tryParse(_cardCtrl.text.trim()) ?? 0;
             total += a;
-            parts.add({'method': 'Tarjeta', 'amount': a, 'last4': _cardLastCtrl.text.trim()});
-            if (_cardLastCtrl.text.trim().isNotEmpty) digitosResumen = _cardLastCtrl.text.trim();
+            parts.add({
+              'method': 'Tarjeta',
+              'amount': a,
+              'last4': _cardLastCtrl.text.trim()
+            });
+            if (_cardLastCtrl.text.trim().isNotEmpty)
+              digitosResumen = _cardLastCtrl.text.trim();
           }
           metodoResumen = parts.map((e) => e['method'] as String).join(' + ');
         } else {
@@ -705,9 +727,11 @@ class _RegistrarAlumnasNuevasViewState
         if (_usarMultiples && parts.isNotEmpty) {
           final mpKey = 'multi_pays_${widget.curso['id'] ?? 'global'}';
           final mpRaw = prefs.getString(mpKey);
-          final Map<String, dynamic> mpMap = mpRaw != null ? jsonDecode(mpRaw) : {};
+          final Map<String, dynamic> mpMap =
+              mpRaw != null ? jsonDecode(mpRaw) : {};
           final newIndex = (alumnas.length - 1).toString();
-          final alumKey = 'c${widget.curso['id'] ?? 'global'}|i$newIndex|${nuevaAlumna.nombre}';
+          final alumKey =
+              'c${widget.curso['id'] ?? 'global'}|i$newIndex|${nuevaAlumna.nombre}';
           mpMap[alumKey] = parts;
           await prefs.setString(mpKey, jsonEncode(mpMap));
         }
