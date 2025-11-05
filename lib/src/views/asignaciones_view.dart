@@ -4,8 +4,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'options_view.dart';
-import 'mi_perfil_view.dart';
+import 'admin_view.dart';
+import 'mi_perfil_admin.dart';
 
 // Modelo de asignación
 class AsignacionModel {
@@ -605,12 +605,12 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                 if (index == 0) {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => const OptionsView()),
+                    MaterialPageRoute(builder: (_) => const AdminView()),
                   );
                 } else if (index == 1) {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => const MiPerfilView()),
+                    MaterialPageRoute(builder: (_) => const MiPerfilAdmin()),
                   );
                 }
               },
