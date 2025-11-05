@@ -45,7 +45,9 @@ class _CrearCursoViewState extends State<CrearCursoView> {
 
   // Creación de curso
   Future<void> _crearCurso() async {
-    if (_formKey.currentState!.validate() && fechaInicio != null && fechaFin != null) {
+    if (_formKey.currentState!.validate() &&
+        fechaInicio != null &&
+        fechaFin != null) {
       final url = Uri.parse('${dotenv.env['API_EMPRESA']!.trim()}api/v1/curso');
       final body = {
         "id": 0,
@@ -214,19 +216,23 @@ class _CrearCursoViewState extends State<CrearCursoView> {
                             filled: true,
                             fillColor: Colors.white,
                             labelText: 'Nombre De Curso',
-                            labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-                            prefixIcon: const Icon(Icons.create, color: Color(0xFFF26AB6)),
+                            labelStyle:
+                                GoogleFonts.poppins(color: Colors.grey[600]),
+                            prefixIcon: const Icon(Icons.create,
+                                color: Color(0xFFF26AB6)),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(15),
                               borderSide: BorderSide.none,
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFF26AB6), width: 1.5),
                             ),
                           ),
-                          validator: (v) =>
-                              v == null || v.isEmpty ? "Campo obligatorio" : null,
+                          validator: (v) => v == null || v.isEmpty
+                              ? "Campo obligatorio"
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -249,19 +255,23 @@ class _CrearCursoViewState extends State<CrearCursoView> {
                             filled: true,
                             fillColor: Colors.white,
                             labelText: 'Ciudad',
-                            labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-                            prefixIcon: const Icon(Icons.location_city, color: Color(0xFFF26AB6)),
+                            labelStyle:
+                                GoogleFonts.poppins(color: Colors.grey[600]),
+                            prefixIcon: const Icon(Icons.location_city,
+                                color: Color(0xFFF26AB6)),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(15),
                               borderSide: BorderSide.none,
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFF26AB6), width: 1.5),
                             ),
                           ),
-                          validator: (v) =>
-                              v == null || v.isEmpty ? "Campo obligatorio" : null,
+                          validator: (v) => v == null || v.isEmpty
+                              ? "Campo obligatorio"
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -286,15 +296,18 @@ class _CrearCursoViewState extends State<CrearCursoView> {
                                 filled: true,
                                 fillColor: Colors.white,
                                 labelText: 'Fecha De Inicio',
-                                labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-                                prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFFF26AB6)),
+                                labelStyle: GoogleFonts.poppins(
+                                    color: Colors.grey[600]),
+                                prefixIcon: const Icon(Icons.calendar_today,
+                                    color: Color(0xFFF26AB6)),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
                                   borderSide: BorderSide.none,
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
-                                  borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFF26AB6), width: 1.5),
                                 ),
                               ),
                               controller: TextEditingController(
@@ -302,8 +315,9 @@ class _CrearCursoViewState extends State<CrearCursoView> {
                                     ? ""
                                     : "${fechaInicio!.day}/${fechaInicio!.month}/${fechaInicio!.year}",
                               ),
-                              validator: (v) =>
-                                  fechaInicio == null ? "Selecciona una fecha" : null,
+                              validator: (v) => fechaInicio == null
+                                  ? "Selecciona una fecha"
+                                  : null,
                             ),
                           ),
                         ),
@@ -330,15 +344,18 @@ class _CrearCursoViewState extends State<CrearCursoView> {
                                 filled: true,
                                 fillColor: Colors.white,
                                 labelText: 'Fecha De Fin',
-                                labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-                                prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFFF26AB6)),
+                                labelStyle: GoogleFonts.poppins(
+                                    color: Colors.grey[600]),
+                                prefixIcon: const Icon(Icons.calendar_today,
+                                    color: Color(0xFFF26AB6)),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
                                   borderSide: BorderSide.none,
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
-                                  borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 1.5),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFF26AB6), width: 1.5),
                                 ),
                               ),
                               controller: TextEditingController(
@@ -346,8 +363,9 @@ class _CrearCursoViewState extends State<CrearCursoView> {
                                     ? ""
                                     : "${fechaFin!.day}/${fechaFin!.month}/${fechaFin!.year}",
                               ),
-                              validator: (v) =>
-                                  fechaFin == null ? "Selecciona una fecha" : null,
+                              validator: (v) => fechaFin == null
+                                  ? "Selecciona una fecha"
+                                  : null,
                             ),
                           ),
                         ),
@@ -410,37 +428,40 @@ class _CrearCursoViewState extends State<CrearCursoView> {
             topRight: Radius.circular(25),
           ),
         ),
-        child: SizedBox(
-          height: 70,
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            onTap: (index) {
-              if (index == 0) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminView()),
-                  (route) => false,
-                );
-              } else if (index == 1) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MiPerfilAdmin()),
-                );
-              }
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: "Principal",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: "Mi Perfil",
-              ),
-            ],
+        child: SafeArea(
+          child: SizedBox(
+            height: 65,
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              type: BottomNavigationBarType.fixed,
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminView()),
+                    (route) => false,
+                  );
+                } else if (index == 1) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MiPerfilAdmin()),
+                  );
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: "Principal",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: "Mi Perfil",
+                ),
+              ],
+            ),
           ),
         ),
       ),

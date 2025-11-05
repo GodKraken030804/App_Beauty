@@ -369,7 +369,7 @@ class _AsignacionViewState extends State<AsignacionView> {
                       ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 6),
+                            horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(15),
@@ -390,11 +390,15 @@ class _AsignacionViewState extends State<AsignacionView> {
                                   hint: Row(
                                     children: [
                                       const Icon(Icons.person,
-                                          color: Color(0xFFF26AB6)),
+                                          color: Color(0xFFF26AB6), size: 20),
                                       const SizedBox(width: 8),
-                                      Text('Selecciona un encargado',
-                                          style: GoogleFonts.poppins(
-                                              color: Colors.grey[600])),
+                                      Flexible(
+                                        child: Text('Selecciona un encargado',
+                                            style: GoogleFonts.poppins(
+                                                color: Colors.grey[600],
+                                                fontSize: 14),
+                                            overflow: TextOverflow.ellipsis),
+                                      ),
                                     ],
                                   ),
                                   icon: const Icon(Icons.expand_more,
@@ -468,7 +472,7 @@ class _AsignacionViewState extends State<AsignacionView> {
                       ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 6),
+                            horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(15),
@@ -489,11 +493,15 @@ class _AsignacionViewState extends State<AsignacionView> {
                                   hint: Row(
                                     children: [
                                       const Icon(Icons.menu_book,
-                                          color: Color(0xFFF26AB6)),
+                                          color: Color(0xFFF26AB6), size: 20),
                                       const SizedBox(width: 8),
-                                      Text('Selecciona un curso',
-                                          style: GoogleFonts.poppins(
-                                              color: Colors.grey[600])),
+                                      Flexible(
+                                        child: Text('Selecciona un curso',
+                                            style: GoogleFonts.poppins(
+                                                color: Colors.grey[600],
+                                                fontSize: 14),
+                                            overflow: TextOverflow.ellipsis),
+                                      ),
                                     ],
                                   ),
                                   icon: const Icon(Icons.expand_more,
