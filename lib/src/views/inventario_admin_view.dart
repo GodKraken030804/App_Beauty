@@ -12,7 +12,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:app_beauty/src/views/admin_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_admin.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:html' as html;
+import 'package:universal_html/html.dart' as html;
 
 class InventarioView extends StatefulWidget {
   const InventarioView({super.key});
