@@ -16,14 +16,20 @@ import 'package:app_beauty/src/views/mi_perfil_admin.dart';
 class AdminInventarioEncargadoView extends StatefulWidget {
   final int encargadoId;
   final String nombre;
-  const AdminInventarioEncargadoView({super.key, required this.encargadoId, required this.nombre});
+  const AdminInventarioEncargadoView(
+      {super.key, required this.encargadoId, required this.nombre});
 
   @override
-  State<AdminInventarioEncargadoView> createState() => _AdminInventarioEncargadoViewState();
+  State<AdminInventarioEncargadoView> createState() =>
+      _AdminInventarioEncargadoViewState();
 }
 
-class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoView> {
-  final List<Color> gradientColors = const [Color(0xFFF26AB6), Color(0xFFAA57EC)];
+class _AdminInventarioEncargadoViewState
+    extends State<AdminInventarioEncargadoView> {
+  final List<Color> gradientColors = const [
+    Color(0xFFF26AB6),
+    Color(0xFFAA57EC)
+  ];
   List<Map<String, dynamic>> _productos = [];
   String _query = '';
   Timer? _timer;
@@ -37,7 +43,8 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
     super.initState();
     _fetchInventario();
     // Actualización periódica para datos "en tiempo real"
-    _timer = Timer.periodic(const Duration(seconds: 12), (_) => _fetchInventario());
+    _timer =
+        Timer.periodic(const Duration(seconds: 12), (_) => _fetchInventario());
     _loadFavorites();
   }
 
@@ -49,8 +56,10 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
 
   Future<void> _fetchInventario() async {
     try {
-      final asignadoUri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/asignado');
-      final productoUri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/producto');
+      final asignadoUri =
+          Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/asignado');
+      final productoUri =
+          Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/producto');
 
       final asignadoRes = await http.get(asignadoUri);
       final productoRes = await http.get(productoUri);
@@ -62,7 +71,9 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
         // Filtra asignaciones del encargado
         final asignados = asignaciones.where((a) {
           final aidRaw = a['iduser'];
-          final int aid = aidRaw is int ? aidRaw : int.tryParse(aidRaw?.toString() ?? '') ?? -1;
+          final int aid = aidRaw is int
+              ? aidRaw
+              : int.tryParse(aidRaw?.toString() ?? '') ?? -1;
           return aid == widget.encargadoId;
         }).toList();
 
@@ -70,12 +81,16 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
         final Map<int, Map<String, dynamic>> agrupados = {};
         for (final a in asignados) {
           final pidRaw = a['idproduc'];
-          final int pid = pidRaw is int ? pidRaw : int.tryParse(pidRaw?.toString() ?? '') ?? -1;
+          final int pid = pidRaw is int
+              ? pidRaw
+              : int.tryParse(pidRaw?.toString() ?? '') ?? -1;
           if (pid == -1) continue;
           final producto = productosAll.firstWhere(
             (p) {
               final idRaw = p['id'];
-              final int id = idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '') ?? -1;
+              final int id = idRaw is int
+                  ? idRaw
+                  : int.tryParse(idRaw?.toString() ?? '') ?? -1;
               return id == pid;
             },
             orElse: () => null,
@@ -84,9 +99,13 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
           final nombre = (producto['nombre'] ?? '').toString();
           final imagen = (producto['imagen'] ?? '').toString();
           final precioRaw = producto['precio'];
-          final double precio = precioRaw is num ? precioRaw.toDouble() : double.tryParse('${precioRaw}') ?? 0.0;
+          final double precio = precioRaw is num
+              ? precioRaw.toDouble()
+              : double.tryParse('${precioRaw}') ?? 0.0;
           final cantRaw = a['cantidad'];
-          final int cant = cantRaw is num ? cantRaw.toInt() : int.tryParse(cantRaw?.toString() ?? '') ?? 0;
+          final int cant = cantRaw is num
+              ? cantRaw.toInt()
+              : int.tryParse(cantRaw?.toString() ?? '') ?? 0;
 
           if (!agrupados.containsKey(pid)) {
             agrupados[pid] = {
@@ -97,7 +116,8 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
               'cantidad_asignada': cant,
             };
           } else {
-            agrupados[pid]!['cantidad_asignada'] = (agrupados[pid]!['cantidad_asignada'] as int) + cant;
+            agrupados[pid]!['cantidad_asignada'] =
+                (agrupados[pid]!['cantidad_asignada'] as int) + cant;
           }
         }
 
@@ -116,7 +136,8 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
     final key = '$_favKeyPrefix${widget.encargadoId}';
     final list = prefs.getStringList(key) ?? <String>[];
     setState(() {
-      _favoriteIds = list.map((e) => int.tryParse(e) ?? -1).where((e) => e != -1).toSet();
+      _favoriteIds =
+          list.map((e) => int.tryParse(e) ?? -1).where((e) => e != -1).toSet();
     });
   }
 
@@ -130,7 +151,8 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
         _favoriteIds.add(id);
       }
     });
-    await prefs.setStringList(key, _favoriteIds.map((e) => e.toString()).toList());
+    await prefs.setStringList(
+        key, _favoriteIds.map((e) => e.toString()).toList());
   }
 
   // ===================== Sort/Filter =====================
@@ -139,26 +161,35 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
       list = list
-          .where((p) => (p['nombre'] ?? '').toString().toLowerCase().contains(q))
+          .where(
+              (p) => (p['nombre'] ?? '').toString().toLowerCase().contains(q))
           .toList();
     }
     if (_sortMode == _SortMode.favorites) {
-      list = list
-          .where((p) {
-            final idRaw = p['id'];
-            final int id = idRaw is int ? idRaw : int.tryParse('${idRaw}') ?? -1;
-            return _favoriteIds.contains(id);
-          })
-          .toList();
-      list.sort((a, b) => (a['nombre'] ?? '').toString().toLowerCase().compareTo((b['nombre'] ?? '').toString().toLowerCase()));
+      list = list.where((p) {
+        final idRaw = p['id'];
+        final int id = idRaw is int ? idRaw : int.tryParse('${idRaw}') ?? -1;
+        return _favoriteIds.contains(id);
+      }).toList();
+      list.sort((a, b) => (a['nombre'] ?? '')
+          .toString()
+          .toLowerCase()
+          .compareTo((b['nombre'] ?? '').toString().toLowerCase()));
     } else if (_sortMode == _SortMode.priceAsc) {
       list.sort((a, b) {
-        final double pa = (a['precio'] is num) ? (a['precio'] as num).toDouble() : double.tryParse('${a['precio']}') ?? 0.0;
-        final double pb = (b['precio'] is num) ? (b['precio'] as num).toDouble() : double.tryParse('${b['precio']}') ?? 0.0;
+        final double pa = (a['precio'] is num)
+            ? (a['precio'] as num).toDouble()
+            : double.tryParse('${a['precio']}') ?? 0.0;
+        final double pb = (b['precio'] is num)
+            ? (b['precio'] as num).toDouble()
+            : double.tryParse('${b['precio']}') ?? 0.0;
         return pa.compareTo(pb);
       });
     } else {
-      list.sort((a, b) => (a['nombre'] ?? '').toString().toLowerCase().compareTo((b['nombre'] ?? '').toString().toLowerCase()));
+      list.sort((a, b) => (a['nombre'] ?? '')
+          .toString()
+          .toLowerCase()
+          .compareTo((b['nombre'] ?? '').toString().toLowerCase()));
     }
     return list;
   }
@@ -191,7 +222,8 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
             child: Column(
               children: [
                 Center(
-                  child: Image.asset('assets/images/Logo.png', height: 90, fit: BoxFit.contain),
+                  child: Image.asset('assets/images/Logo.png',
+                      height: 90, fit: BoxFit.contain),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -227,9 +259,11 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
                 decoration: InputDecoration(
                   hintText: 'Buscar producto...',
                   hintStyle: GoogleFonts.poppins(color: Colors.grey[500]),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFFF26AB6)),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Color(0xFFF26AB6)),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                 ),
                 style: GoogleFonts.poppins(),
               ),
@@ -279,23 +313,29 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
                       children: [
                         const SizedBox(height: 120),
                         Center(
-                          child: Text('Sin productos asignados', style: GoogleFonts.poppins(color: Colors.grey)),
+                          child: Text('Sin productos asignados',
+                              style: GoogleFonts.poppins(color: Colors.grey)),
                         ),
                       ],
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       itemCount: _filteredSortedProductos().length,
                       itemBuilder: (context, index) {
                         final p = _filteredSortedProductos()[index];
                         final idRaw = p['id'];
-                        final int id = idRaw is int ? idRaw : int.tryParse('${idRaw}') ?? -1;
+                        final int id = idRaw is int
+                            ? idRaw
+                            : int.tryParse('${idRaw}') ?? -1;
                         final cantidad = (p['cantidad_asignada'] ?? 0) as int;
                         return _ProductoTile(
                           nombre: (p['nombre'] ?? '').toString(),
                           imagen: (p['imagen'] ?? '').toString(),
                           cantidad: cantidad,
-                          precio: (p['precio'] is num) ? (p['precio'] as num).toDouble() : double.tryParse('${p['precio']}') ?? 0.0,
+                          precio: (p['precio'] is num)
+                              ? (p['precio'] as num).toDouble()
+                              : double.tryParse('${p['precio']}') ?? 0.0,
                           isFavorite: _favoriteIds.contains(id),
                           onToggleFavorite: () => _toggleFavorite(id),
                           colors: gradientColors,
@@ -320,37 +360,40 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
             topRight: Radius.circular(25),
           ),
         ),
-        child: SizedBox(
-          height: 70,
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            onTap: (index) {
-              if (index == 0) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminView()),
-                  (route) => false,
-                );
-              } else if (index == 1) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MiPerfilAdmin()),
-                );
-              }
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Principal',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: 'Mi Perfil',
-              ),
-            ],
+        child: SafeArea(
+          child: SizedBox(
+            height: 65,
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              type: BottomNavigationBarType.fixed,
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminView()),
+                    (route) => false,
+                  );
+                } else if (index == 1) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MiPerfilAdmin()),
+                  );
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: 'Principal',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'Mi Perfil',
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -388,8 +431,8 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
       return;
     }
 
-  final excel = ex.Excel.createExcel();
-  final sheet = excel['Inventario'];
+    final excel = ex.Excel.createExcel();
+    final sheet = excel['Inventario'];
     sheet.appendRow(['Inventario de', widget.nombre]);
     sheet.appendRow(['Exportado', now.toLocal().toString().split('.').first]);
     sheet.appendRow([]);
@@ -405,7 +448,7 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
       sheet.appendRow([nombre, cant, precio, total]);
     }
 
-  final bytesList = excel.encode();
+    final bytesList = excel.encode();
     if (bytesList == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -420,9 +463,8 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
     final filename = 'Inventario_${safeNombre}_$ts.xlsx';
 
     if (kIsWeb) {
-      final blob = html.Blob([
-        bytes
-      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      final blob = html.Blob([bytes],
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       final url = html.Url.createObjectUrlFromBlob(blob);
       html.AnchorElement(href: url)
         ..setAttribute('download', filename)
@@ -447,7 +489,9 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
         final ok = res.toString().isNotEmpty;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(ok ? 'Archivo guardado: $filename' : 'No se pudo guardar el archivo'),
+            content: Text(ok
+                ? 'Archivo guardado: $filename'
+                : 'No se pudo guardar el archivo'),
           ),
         );
       }
@@ -488,7 +532,9 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
           child: const SizedBox(
             width: 64,
             height: 64,
-            child: Center(child: Icon(Icons.file_download_outlined, color: Colors.white, size: 30)),
+            child: Center(
+                child: Icon(Icons.file_download_outlined,
+                    color: Colors.white, size: 30)),
           ),
         ),
       ),
@@ -496,9 +542,11 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
     return tooltip != null ? Tooltip(message: tooltip, child: btn) : btn;
   }
 
-  Widget _segDivider() => Container(width: 1, height: 44, color: Colors.grey.shade200);
+  Widget _segDivider() =>
+      Container(width: 1, height: 44, color: Colors.grey.shade200);
 
-  Widget _segButton(String text, IconData icon, _SortMode mode, {BorderRadius? radius}) {
+  Widget _segButton(String text, IconData icon, _SortMode mode,
+      {BorderRadius? radius}) {
     final selected = _sortMode == mode;
     return Expanded(
       child: InkWell(
@@ -506,14 +554,18 @@ class _AdminInventarioEncargadoViewState extends State<AdminInventarioEncargadoV
         onTap: () => setState(() => _sortMode = mode),
         child: Container(
           decoration: BoxDecoration(
-            color: selected ? gradientColors.first.withOpacity(0.10) : Colors.white,
+            color: selected
+                ? gradientColors.first.withOpacity(0.10)
+                : Colors.white,
             borderRadius: radius,
           ),
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: selected ? gradientColors.first : Colors.grey[700]),
+              Icon(icon,
+                  size: 18,
+                  color: selected ? gradientColors.first : Colors.grey[700]),
               const SizedBox(width: 6),
               Text(text,
                   style: GoogleFonts.poppins(
@@ -540,21 +592,36 @@ class _ProductoTile extends StatelessWidget {
   final VoidCallback onToggleFavorite;
   final bool lowStock;
   final bool outOfStock;
-  const _ProductoTile({required this.nombre, required this.imagen, required this.cantidad, required this.precio, required this.colors, required this.isFavorite, required this.onToggleFavorite, this.lowStock = false, this.outOfStock = false});
+  const _ProductoTile(
+      {required this.nombre,
+      required this.imagen,
+      required this.cantidad,
+      required this.precio,
+      required this.colors,
+      required this.isFavorite,
+      required this.onToggleFavorite,
+      this.lowStock = false,
+      this.outOfStock = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors, begin: Alignment.centerLeft, end: Alignment.centerRight),
+        gradient: LinearGradient(
+            colors: colors,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(2, 4))],
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(2, 4))
+        ],
       ),
       child: Container(
         margin: const EdgeInsets.all(2),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(20)),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -571,29 +638,39 @@ class _ProductoTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(nombre, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: colors.first)),
+                        child: Text(nombre,
+                            style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: colors.first)),
                       ),
                       InkWell(
                         onTap: onToggleFavorite,
                         borderRadius: BorderRadius.circular(20),
-                        child: Icon(isFavorite ? Icons.star : Icons.star_border, color: isFavorite ? colors.first : Colors.grey),
+                        child: Icon(isFavorite ? Icons.star : Icons.star_border,
+                            color: isFavorite ? colors.first : Colors.grey),
                       )
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text('Cantidad: $cantidad', style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87)),
+                      Text('Cantidad: $cantidad',
+                          style: GoogleFonts.poppins(
+                              fontSize: 13, color: Colors.black87)),
                       const SizedBox(width: 10),
                       if (precio > 0)
-                        Text('Precio: \$${precio.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 13, color: Colors.black54)),
+                        Text('Precio: \$${precio.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                                fontSize: 13, color: Colors.black54)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   if (outOfStock)
                     _badge('Sin stock', Colors.red.shade50, Colors.red.shade400)
                   else if (lowStock)
-                    _badge('Stock bajo', Colors.orange.shade50, Colors.orange.shade600),
+                    _badge('Stock bajo', Colors.orange.shade50,
+                        Colors.orange.shade600),
                 ],
               ),
             ),
@@ -605,7 +682,12 @@ class _ProductoTile extends StatelessWidget {
 
   Widget _badge(String text, Color bg, Color fg) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: fg.withOpacity(0.3))),
-        child: Text(text, style: GoogleFonts.poppins(color: fg, fontSize: 11, fontWeight: FontWeight.w600)),
+        decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: fg.withOpacity(0.3))),
+        child: Text(text,
+            style: GoogleFonts.poppins(
+                color: fg, fontSize: 11, fontWeight: FontWeight.w600)),
       );
 }
