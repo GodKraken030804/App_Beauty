@@ -134,39 +134,43 @@ class _PedidoViewState extends State<PedidoView> {
             topRight: Radius.circular(25),
           ),
         ),
-        child: SizedBox(
-          height: 70,
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() => _currentIndex = index);
-              if (index == 0) {
-                // Forzar navegación a PedidoView para mantener circuito entre 2 vistas
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PedidoView()),
-                );
-              } else if (index == 1) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MiPerfilPedidosView()),
-                );
-              }
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: "Principal",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: "Mi Perfil",
-              ),
-            ],
+        child: SafeArea(
+          child: SizedBox(
+            height: 65,
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                setState(() => _currentIndex = index);
+                if (index == 0) {
+                  // Forzar navegación a PedidoView para mantener circuito entre 2 vistas
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PedidoView()),
+                  );
+                } else if (index == 1) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const MiPerfilPedidosView()),
+                  );
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: "Principal",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: "Mi Perfil",
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -305,8 +305,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
           context: context,
           builder: (ctx) {
             return AlertDialog(
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               title: Text('Ticket de Venta',
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
               content: SingleChildScrollView(
@@ -321,7 +321,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                         style: GoogleFonts.poppins()),
                     const SizedBox(height: 8),
                     Text('Métodos de pago:',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w600)),
                     ...productos
                         .where((item) => item['metodo'] != null)
                         .map((mp) {
@@ -357,7 +358,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                     const SizedBox(height: 8),
                     const Divider(),
                     Text('Productos:',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                        style:
+                            GoogleFonts.poppins(fontWeight: FontWeight.w600)),
                     ...productos
                         .where((item) => item['nombre'] != null)
                         .toList()
@@ -451,9 +453,10 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total',
-                            style:
-                                GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-                        Text('\$${_round2(_totalConDescuento).toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w700)),
+                        Text(
+                            '\$${_round2(_totalConDescuento).toStringAsFixed(2)}',
                             style: GoogleFonts.poppins(
                                 fontWeight: FontWeight.w800)),
                       ],
@@ -493,7 +496,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
           _articulosPractica.clear();
         });
 
-        _showTopBar('¡Venta finalizada!', 'Se registró la venta correctamente.');
+        _showTopBar(
+            '¡Venta finalizada!', 'Se registró la venta correctamente.');
       } else {
         if (!mounted) return;
         setState(() => _loading = false);
@@ -923,7 +927,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                                 ),
                                 children: [
                                   ...productos
-                                      .where((p) => p is Map && p['nombre'] != null)
+                                      .where((p) =>
+                                          p is Map && p['nombre'] != null)
                                       .map((p) {
                                     final nombre =
                                         (p['nombre'] ?? '').toString();
@@ -933,7 +938,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
 
                                     String extras = '';
                                     if (p['es_regalo'] == true) extras += ' 🎁';
-                                    if (p['es_practica'] == true) extras += ' 📚';
+                                    if (p['es_practica'] == true)
+                                      extras += ' 📚';
 
                                     return ListTile(
                                       dense: true,
@@ -961,7 +967,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                                                   ? null
                                                   : () async {
                                                       final idVenta = _asInt(
-                                                          v['id'] ?? v['folio']);
+                                                          v['id'] ??
+                                                              v['folio']);
                                                       if (idVenta == null)
                                                         return;
                                                       final ok =
@@ -1221,7 +1228,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                 gananciaVenta += gananciaPorProducto;
               }
               tipos.add(tipo);
-            } else if (item['tipo'] == 'descuento' && item['descuento'] != null) {
+            } else if (item['tipo'] == 'descuento' &&
+                item['descuento'] != null) {
               final descuentoItem = item['descuento'].toString();
               final parsedDesc = double.tryParse(descuentoItem);
               if (parsedDesc != null && parsedDesc > 0) {
@@ -1337,8 +1345,6 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
     }
   }
 
-  
-
   Future<void> _shareFile(Uint8List bytes, String fileName) async {
     if (kIsWeb) {
       final mimeType =
@@ -1358,8 +1364,6 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
     await f.writeAsBytes(bytes, flush: true);
     await Share.shareXFiles([XFile(path)], text: 'Reporte de ventas');
   }
-
-  
 
   Future<void> _eliminarVentaPorId(int idVenta,
       [StateSetter? setModalState, BuildContext? modalContext]) async {
@@ -1508,7 +1512,6 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                 ],
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Row(
@@ -1535,7 +1538,6 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                 ],
               ),
             ),
-
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1740,12 +1742,9 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                                                         style:
                                                             GoogleFonts.poppins(
                                                           fontSize: 11,
-                                                          fontWeight:
-                                                              esPractica
-                                                                  ? FontWeight
-                                                                      .w600
-                                                                  : FontWeight
-                                                                      .w400,
+                                                          fontWeight: esPractica
+                                                              ? FontWeight.w600
+                                                              : FontWeight.w400,
                                                         ),
                                                       ),
                                                     ],
@@ -1762,7 +1761,6 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                               ),
               ),
             ),
-
             Flexible(
               child: SingleChildScrollView(
                 child: Container(
@@ -1872,7 +1870,6 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                                               ),
                                             ),
                                             onChanged: (v) {
-          
                                               if (v.length > 4) {
                                                 _last4Ctrl.text =
                                                     v.substring(0, 4);
@@ -1937,8 +1934,7 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                                         SizedBox(
                                           width: 100,
                                           child: TextField(
-                                            controller:
-                                                _last4TransferenciaCtrl,
+                                            controller: _last4TransferenciaCtrl,
                                             maxLength: 4,
                                             keyboardType: TextInputType.number,
                                             style: GoogleFonts.poppins(
@@ -2083,13 +2079,14 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                                       horizontal: 10, vertical: 8),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide:
-                                        BorderSide(color: Colors.green.shade200),
+                                    borderSide: BorderSide(
+                                        color: Colors.green.shade200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: BorderSide(
-                                        color: Colors.green.shade400, width: 1.5),
+                                        color: Colors.green.shade400,
+                                        width: 1.5),
                                   ),
                                 ),
                               ),
@@ -2127,8 +2124,8 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                                       fontSize: 14,
                                       color: Colors.green.shade600,
                                     )),
-                Text(
-                  '-\$${(double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0).toStringAsFixed(2)}',
+                                Text(
+                                    '-\$${(double.tryParse(_descuentoCtrl.text.trim()) ?? 0.0).toStringAsFixed(2)}',
                                     style: GoogleFonts.poppins(
                                       fontSize: 14,
                                       color: Colors.green.shade600,
@@ -2210,8 +2207,9 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed:
-                                  _loading || _carrito.isEmpty ? null : _finalizarVenta,
+                              onPressed: _loading || _carrito.isEmpty
+                                  ? null
+                                  : _finalizarVenta,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: gradientEnd,
                                 disabledBackgroundColor: Colors.grey,
@@ -2261,37 +2259,41 @@ class _VentasPedidosViewState extends State<VentasPedidosView> {
             topRight: Radius.circular(25),
           ),
         ),
-        child: SizedBox(
-          height: 70,
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            currentIndex: 0,
-            onTap: (index) {
-              if (index == 0) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PedidoView()),
-                );
-              } else if (index == 1) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MiPerfilPedidosView()),
-                );
-              }
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Inicio',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: 'Perfil',
-              ),
-            ],
+        child: SafeArea(
+          child: SizedBox(
+            height: 65,
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: 0,
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PedidoView()),
+                  );
+                } else if (index == 1) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const MiPerfilPedidosView()),
+                  );
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: 'Inicio',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'Perfil',
+                ),
+              ],
+            ),
           ),
         ),
       ),

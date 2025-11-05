@@ -262,34 +262,37 @@ class _MiPerfilAdminState extends State<MiPerfilAdmin> {
             topRight: Radius.circular(25),
           ),
         ),
-        child: SizedBox(
-          height: 70, // Consistente con el resto de la app
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            currentIndex: 1,
-            onTap: (index) {
-              if (index == 0) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminView()),
-                  (route) => false,
-                );
-              }
-              // Si es 1, ya está en perfil, no hace nada
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: "Principal",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: "Mi Perfil",
-              ),
-            ],
+        child: SafeArea(
+          child: SizedBox(
+            height: 65,
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: 1,
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminView()),
+                    (route) => false,
+                  );
+                }
+                // Si es 1, ya está en perfil, no hace nada
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: "Principal",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: "Mi Perfil",
+                ),
+              ],
+            ),
           ),
         ),
       ),
