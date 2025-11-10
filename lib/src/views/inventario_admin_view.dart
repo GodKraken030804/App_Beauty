@@ -77,19 +77,67 @@ class _InventarioViewState extends State<InventarioView> {
     }
   }
 
-  // Helper: Elimina un producto por ID en el API_GATEWAY
+  // Helper: Elimina un producto por ID
+  // Intenta primero con API_GATEWAY, si falla usa API_EMPRESA como fallback
   Future<bool> _eliminarProductoPorId({required int id}) async {
-    final uri = Uri.parse("${dotenv.env['API_GATEWAY']}eliminar-producto/$id");
+    // Intentar primero con API_GATEWAY
+    final uriGateway =
+        Uri.parse("${dotenv.env['API_GATEWAY']}eliminar-producto/$id");
     try {
-      final response = await http.delete(uri);
+      debugPrint('[DELETE Gateway] Intentando: ${uriGateway.toString()}');
+      final response = await http.delete(
+        uriGateway,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          throw Exception('Timeout Gateway');
+        },
+      );
+
+      debugPrint('[DELETE Gateway] Response: ${response.statusCode}');
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return true;
       }
+    } catch (e) {
+      debugPrint('[DELETE Gateway] Falló: $e');
       debugPrint(
-          'Fallo al eliminar producto ($id): ${response.statusCode} -> ${response.body}');
+          '[DELETE Gateway] Intentando con API_EMPRESA como fallback...');
+    }
+
+    // Fallback: Intentar con API_EMPRESA
+    try {
+      final uriEmpresa =
+          Uri.parse("${dotenv.env['API_EMPRESA']}api/v1/producto/$id");
+      debugPrint('[DELETE Empresa] Intentando: ${uriEmpresa.toString()}');
+
+      final response = await http.delete(
+        uriEmpresa,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          throw Exception('Timeout Empresa');
+        },
+      );
+
+      debugPrint('[DELETE Empresa] Response: ${response.statusCode}');
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        debugPrint('[DELETE Empresa] ✅ Producto eliminado exitosamente');
+        return true;
+      }
+
+      debugPrint(
+          '[DELETE Empresa] Fallo: ${response.statusCode} -> ${response.body}');
       return false;
     } catch (e) {
-      debugPrint('Error al eliminar producto ($id): $e');
+      debugPrint('[DELETE Empresa] Error: $e');
       return false;
     }
   }
@@ -429,12 +477,15 @@ class _InventarioViewState extends State<InventarioView> {
   }
 
   void _mostrarFlush(String mensaje, IconData icono, Color color) {
+    if (!mounted) return;
     Flushbar(
       message: mensaje,
       icon: Icon(icono, color: Colors.white),
       backgroundColor: color,
       duration: const Duration(seconds: 2),
       flushbarPosition: FlushbarPosition.TOP,
+      margin: const EdgeInsets.all(8),
+      borderRadius: BorderRadius.circular(8),
     ).show(context);
   }
 
@@ -1021,7 +1072,7 @@ class _InventarioViewState extends State<InventarioView> {
                             .split('/')
                             .last;
                         final imagenUrl =
-                            "${dotenv.env['API_GATEWAY']}imagenes/$imagenNombre";
+                            "${dotenv.env['API_IMAGES']}imagen/$imagenNombre";
                         final cantidad = producto['cantidad'] ?? 0;
                         final precio = producto['precio'] ?? '0';
 
@@ -1043,18 +1094,36 @@ class _InventarioViewState extends State<InventarioView> {
                             final ok = await _eliminarProductoPorId(
                                 id: producto['id']);
                             if (ok) {
-                              setState(() {
-                                productos.removeWhere(
-                                    (p) => p['id'] == producto['id']);
-                                productosFiltrados.removeWhere(
-                                    (p) => p['id'] == producto['id']);
-                              });
-                              _mostrarFlush('Producto eliminado',
-                                  Icons.delete_forever, Colors.red);
+                              if (mounted) {
+                                setState(() {
+                                  productos.removeWhere(
+                                      (p) => p['id'] == producto['id']);
+                                  productosFiltrados.removeWhere(
+                                      (p) => p['id'] == producto['id']);
+                                });
+                                // Esperar a que el dismiss se complete antes de mostrar el Flushbar
+                                Future.delayed(
+                                    const Duration(milliseconds: 300), () {
+                                  if (mounted) {
+                                    _mostrarFlush('Producto eliminado',
+                                        Icons.check_circle, Colors.green);
+                                  }
+                                });
+                              }
                               return true;
                             } else {
-                              _mostrarFlush('No se pudo eliminar',
-                                  Icons.error_outline, Colors.red);
+                              // Mostrar error solo si el widget aún está montado
+                              if (mounted) {
+                                Future.delayed(
+                                    const Duration(milliseconds: 100), () {
+                                  if (mounted) {
+                                    _mostrarFlush(
+                                        'Error: No se pudo conectar con el servidor',
+                                        Icons.error_outline,
+                                        Colors.red);
+                                  }
+                                });
+                              }
                               return false;
                             }
                           },

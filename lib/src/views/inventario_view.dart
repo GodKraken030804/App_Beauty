@@ -312,7 +312,7 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
   // Product tile builder
   Widget _buildProductTile(Map producto) {
     final imagenNombre = (producto['imagen'] ?? '').toString().split('/').last;
-    final imagenUrl = "${dotenv.env['API_GATEWAY']}imagenes/$imagenNombre";
+    final imagenUrl = "${dotenv.env['API_IMAGES']}imagen/$imagenNombre";
     final cantidad = producto['cantidad_asignada'] ?? 0;
     final cantidadInt = cantidad is num
         ? cantidad.toInt()
