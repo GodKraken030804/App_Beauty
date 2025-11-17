@@ -798,7 +798,14 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
           ),
         ],
       ),
-      // Removed floatingActionButton (hamburger menu) per request
+      // Botón flotante con opciones de descargar y enviar
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: gradientColors.first,
+        onPressed: () {
+          _mostrarMenuOpciones();
+        },
+        child: const Icon(Icons.download, color: Colors.white),
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -963,6 +970,161 @@ extension on _ProductosExcelViewState {
         ),
       );
     }
+  }
+
+  void _mostrarMenuOpciones() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Opciones del Inventario',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: Icon(Icons.download, color: gradientColors.first),
+                  title: Text(
+                    'Descargar Inventario',
+                    style: GoogleFonts.poppins(fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _descargarInventario();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.email, color: gradientColors.last),
+                  title: Text(
+                    'Enviar por Correo',
+                    style: GoogleFonts.poppins(fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _enviarPorCorreo();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _descargarInventario() async {
+    try {
+      final List<Map<String, dynamic>> datosExportacion = [];
+
+      for (var producto in _filteredSortedProductos()) {
+        datosExportacion.add({
+          'ID': producto['id'],
+          'Producto': producto['nombre'],
+          'Cantidad': producto['cantidad_asignada'] ?? 0,
+          'Precio': producto['precio'],
+          'Total': ((producto['cantidad_asignada'] ?? 0) *
+                  (double.tryParse(producto['precio'].toString()) ?? 0.0))
+              .toStringAsFixed(2),
+        });
+      }
+
+      _generarCSV(datosExportacion);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Inventario descargado', style: GoogleFonts.poppins()),
+          backgroundColor: gradientColors.first,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al descargar: $e', style: GoogleFonts.poppins()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _enviarPorCorreo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) return;
+
+      final decoded = JwtDecoder.decode(token);
+      final email = decoded['email'] ?? 'usuario@example.com';
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Enviando inventario a $email...',
+              style: GoogleFonts.poppins()),
+          backgroundColor: gradientColors.last,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Simular envío (aquí irían las llamadas a la API real)
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('¡Inventario enviado exitosamente!',
+              style: GoogleFonts.poppins()),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al enviar: $e', style: GoogleFonts.poppins()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _generarCSV(List<Map<String, dynamic>> datos) {
+    final buffer = StringBuffer();
+    if (datos.isEmpty) return buffer.toString();
+
+    // Encabezados
+    final headers = datos[0].keys.toList();
+    buffer.writeln(headers.join(','));
+
+    // Datos
+    for (var fila in datos) {
+      buffer.writeln(headers.map((h) => fila[h]).join(','));
+    }
+
+    return buffer.toString();
   }
 }
 

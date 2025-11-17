@@ -287,37 +287,6 @@ class _AsignacionViewState extends State<AsignacionView> {
         child: Center(
           child: Column(
             children: [
-              // NavBar superior estilo Options (gradiente)
-              Container(
-                width: double.infinity,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: gradientColors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: IconButton(
-                      icon: const Icon(Icons.refresh,
-                          color: Colors.white, size: 28),
-                      onPressed: () {
-                        setState(() {
-                          isLoadingCursos = true;
-                          isLoadingEncargados = true;
-                        });
-                        _loadCursos();
-                        _loadEncargados();
-                      },
-                      tooltip: 'Recargar datos',
-                    ),
-                  ),
-                ),
-              ),
               const SizedBox(height: 20),
 
               /// 🔹 Formulario
@@ -711,6 +680,18 @@ class _AsignacionViewState extends State<AsignacionView> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            isLoadingCursos = true;
+            isLoadingEncargados = true;
+          });
+          _loadCursos();
+          _loadEncargados();
+        },
+        backgroundColor: const Color(0xFFF26AB6),
+        child: const Icon(Icons.refresh, color: Colors.white),
       ),
     );
   }

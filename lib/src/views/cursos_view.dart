@@ -161,12 +161,6 @@ class _CursosViewState extends State<CursosView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 2,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Color(0xFFF26AB6)),
-      ),
       body: Column(
         children: [
           // Barra de gradiente decorativa
@@ -389,25 +383,8 @@ class _CursosViewState extends State<CursosView> {
                                         const SizedBox(height: 12),
                                         Row(
                                           mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
+                                              MainAxisAlignment.end,
                                           children: [
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.confirmation_number,
-                                                  size: 16,
-                                                  color: Color(0xFFF26AB6),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  'ID: ${curso['id']}',
-                                                  style: GoogleFonts.poppins(
-                                                    fontSize: 12,
-                                                    color: Colors.grey[600],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
                                             ElevatedButton.icon(
                                               onPressed: () =>
                                                   _confirmarEliminacion(
