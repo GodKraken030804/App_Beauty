@@ -894,10 +894,46 @@ extension on _ProductosExcelViewState {
       ),
     );
     if (seleccion == null || seleccion.isEmpty) return;
-    await _agregarPaqueteAlCarrito(seleccion);
+    final nombre = await _promptNombrePaquete();
+    if (nombre == null) return;
+    await _agregarPaqueteAlCarrito(seleccion, nombre);
   }
 
-  Future<void> _agregarPaqueteAlCarrito(List<_PaqueteItem> items) async {
+  Future<String?> _promptNombrePaquete() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Nombre del paquete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'Ej. Paquete Promo #1'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancelar', style: GoogleFonts.poppins()),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final v = ctrl.text.trim();
+                Navigator.pop(ctx, v.isEmpty ? 'Paquete' : v);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: gradientColors.first),
+              child: Text('Aceptar', style: GoogleFonts.poppins(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+    ctrl.dispose();
+    return result;
+  }
+
+  Future<void> _agregarPaqueteAlCarrito(List<_PaqueteItem> items, String nombrePaquete) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
@@ -905,6 +941,7 @@ extension on _ProductosExcelViewState {
       final userId = JwtDecoder.decode(token)['id'];
 
       double totalPaquete = 0.0;
+      // Enviar todos los productos seleccionados como una sola acción agrupada
       for (final it in items) {
         final producto = it.producto;
         final int cant = it.cantidad;
@@ -922,6 +959,7 @@ extension on _ProductosExcelViewState {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
           },
+          // Nota: el backend actual no documenta un campo "paquete"; enviamos solo los campos válidos.
           body: jsonEncode({
             'id_encargado': userId,
             'id_producto': producto['id'],
@@ -945,11 +983,32 @@ extension on _ProductosExcelViewState {
         }
       }
 
+      // Guardar metadatos locales del paquete (para posible agrupación en UI de ventas)
+      try {
+        final key = 'paquetes_carrito_meta';
+        final raw = prefs.getString(key);
+        final Map<String, dynamic> meta = raw != null ? jsonDecode(raw) : {};
+        final pkgId = 'pkg_${DateTime.now().millisecondsSinceEpoch}';
+        meta[pkgId] = {
+          'nombre': nombrePaquete,
+          'total': totalPaquete,
+          'items': items
+              .map((e) => {
+                    'id_producto': e.producto['id'],
+                    'cantidad': e.cantidad,
+                  })
+              .toList(),
+          'ts': DateTime.now().toIso8601String(),
+        };
+        await prefs.setString(key, jsonEncode(meta));
+      } catch (_) {}
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Paquete agregado: ${items.length} productos, total \$${totalPaquete.toStringAsFixed(2)}'),
+              'Paquete "$nombrePaquete" agregado: ${items.length} productos, total \$${totalPaquete.toStringAsFixed(2)}',
+              style: GoogleFonts.poppins()),
           backgroundColor: gradientColors.last,
         ),
       );

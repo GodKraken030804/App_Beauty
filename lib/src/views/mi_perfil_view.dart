@@ -153,27 +153,34 @@ class _MiPerfilViewState extends State<MiPerfilView> {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final double avatarRadius = screenSize.width * 0.18;
+    final double topBarHeight = MediaQuery.of(context).padding.top + 60;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            children: [
-              // Top gradient bar for visual consistency
-              Container(
-                width: double.infinity,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [gradientStart, gradientEnd],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+      body: Stack(
+        children: [
+          // Gradient flush to very top including status bar space
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: topBarHeight,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [gradientStart, gradientEnd],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
-              const SizedBox(height: 20),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                children: [
+                  SizedBox(height: 60 + 20), // space below gradient bar
               Container(
                 padding: const EdgeInsets.only(top: 20, bottom: 10),
                 child: SizedBox(
@@ -366,9 +373,11 @@ class _MiPerfilViewState extends State<MiPerfilView> {
                   ],
                 ),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
