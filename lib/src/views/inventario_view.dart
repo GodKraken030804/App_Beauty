@@ -747,9 +747,9 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        onPressed: _abrirArmarPaquete,
+                        onPressed: () {},
                         icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                        label: Text('Armar',
+                        label: Text('Ver',
                             style: GoogleFonts.poppins(
                                 fontWeight: FontWeight.w600)),
                       ),
@@ -872,6 +872,11 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
       ),
     );
   }
+}
+
+// ===================== Funciones deshabilitadas =====================
+void _abrirArmarPaquete() {
+  // Función deshabilitada: Armar paquetes removido
 }
 
 // ===================== Paquetes =====================
