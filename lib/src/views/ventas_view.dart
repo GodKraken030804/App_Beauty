@@ -102,6 +102,23 @@ class _VentasViewState extends State<VentasView> {
     return int.tryParse(v.toString());
   }
 
+  // Agrupar productos del carrito por paquete_id
+  List<List<Map<String, dynamic>>> _agruparCarritoPorPaquete() {
+    Map<String?, List<Map<String, dynamic>>> grupos = {};
+
+    for (int i = 0; i < _carrito.length; i++) {
+      final item = _carrito[i];
+      final paqueteId = item['paquete_id'] as String?;
+
+      if (!grupos.containsKey(paqueteId)) {
+        grupos[paqueteId] = [];
+      }
+      grupos[paqueteId]!.add({...item, '_index': i});
+    }
+
+    return grupos.values.toList();
+  }
+
   Future<void> _fetchProductos() async {
     try {
       final uri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/producto');

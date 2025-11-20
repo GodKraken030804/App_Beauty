@@ -905,8 +905,10 @@ extension on _ProductosExcelViewState {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Nombre del paquete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Nombre del paquete',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           content: TextField(
             controller: ctrl,
             autofocus: true,
@@ -922,8 +924,10 @@ extension on _ProductosExcelViewState {
                 final v = ctrl.text.trim();
                 Navigator.pop(ctx, v.isEmpty ? 'Paquete' : v);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: gradientColors.first),
-              child: Text('Aceptar', style: GoogleFonts.poppins(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: gradientColors.first),
+              child: Text('Aceptar',
+                  style: GoogleFonts.poppins(color: Colors.white)),
             ),
           ],
         );
@@ -933,65 +937,24 @@ extension on _ProductosExcelViewState {
     return result;
   }
 
-  Future<void> _agregarPaqueteAlCarrito(List<_PaqueteItem> items, String nombrePaquete) async {
+  Future<void> _agregarPaqueteAlCarrito(
+      List<_PaqueteItem> items, String nombrePaquete) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       if (token == null) return;
       final userId = JwtDecoder.decode(token)['id'];
 
-      double totalPaquete = 0.0;
-      // Enviar todos los productos seleccionados como una sola acción agrupada
-      for (final it in items) {
-        final producto = it.producto;
-        final int cant = it.cantidad;
-        final double precio = (producto['precio'] is num)
-            ? (producto['precio'] as num).toDouble()
-            : double.tryParse('${producto['precio']}') ?? 0.0;
-        final double total = double.parse((precio * cant).toStringAsFixed(2));
-        totalPaquete += total;
+      // Generar ID único para el paquete
+      final pkgId = 'pkg_${DateTime.now().millisecondsSinceEpoch}';
 
-        final uri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/carrito');
-        final res = await http.post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          // Nota: el backend actual no documenta un campo "paquete"; enviamos solo los campos válidos.
-          body: jsonEncode({
-            'id_encargado': userId,
-            'id_producto': producto['id'],
-            'cantidad': cant,
-            'total': total,
-          }),
-        );
-
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          await _actualizarCantidadLocal(producto, cant);
-        } else {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Error al agregar un producto del paquete (${res.statusCode})'),
-              backgroundColor: Colors.red.shade400,
-            ),
-          );
-          // Continuar con los demás ítems a pesar del error
-        }
-      }
-
-      // Guardar metadatos locales del paquete (para posible agrupación en UI de ventas)
+      // Guardar metadatos locales del paquete primero
       try {
         final key = 'paquetes_carrito_meta';
         final raw = prefs.getString(key);
         final Map<String, dynamic> meta = raw != null ? jsonDecode(raw) : {};
-        final pkgId = 'pkg_${DateTime.now().millisecondsSinceEpoch}';
         meta[pkgId] = {
           'nombre': nombrePaquete,
-          'total': totalPaquete,
           'items': items
               .map((e) => {
                     'id_producto': e.producto['id'],
@@ -1003,13 +966,47 @@ extension on _ProductosExcelViewState {
         await prefs.setString(key, jsonEncode(meta));
       } catch (_) {}
 
+      // Enviar todos los productos seleccionados como una sola acción agrupada
+      for (final it in items) {
+        final producto = it.producto;
+        final int cant = it.cantidad;
+        final double precio = (producto['precio'] is num)
+            ? (producto['precio'] as num).toDouble()
+            : double.tryParse('${producto['precio']}') ?? 0.0;
+        final double total = double.parse((precio * cant).toStringAsFixed(2));
+
+        final uri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/carrito');
+        final res = await http.post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'id_encargado': userId,
+            'id_producto': producto['id'],
+            'cantidad': cant,
+            'total': total,
+            'paquete_id': pkgId,
+            'nombre_paquete': nombrePaquete,
+          }),
+        );
+
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          await _actualizarCantidadLocal(producto, cant);
+        } else {
+          debugPrint('Error al agregar producto al carrito: ${res.statusCode}');
+        }
+      }
+
       if (!mounted) return;
+      final mensaje = 'Paquete agregado: ${items.length} productos';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              'Paquete "$nombrePaquete" agregado: ${items.length} productos, total \$${totalPaquete.toStringAsFixed(2)}',
-              style: GoogleFonts.poppins()),
+          content: Text(mensaje, style: GoogleFonts.poppins()),
           backgroundColor: gradientColors.last,
+          duration: const Duration(seconds: 2),
         ),
       );
       if (widget.pedidoMode) {
