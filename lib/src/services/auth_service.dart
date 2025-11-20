@@ -12,8 +12,8 @@ class AuthService {
         Uri.parse(_loginUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'gmail': email,
-          'password': password,
+          "gmail": email,
+          "password": password
         }),
       );
 
