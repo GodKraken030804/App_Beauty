@@ -228,7 +228,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
             anticipo: anticipo,
             metodoPago: metodoPago,
             digitos: digitos,
-            llego: llego));
+            llego: llego,
+            descuento: 0.0,
+            razonDescuento: ''));
       }
     } catch (e) {
       debugPrint('Error parseando Excel: $e');
@@ -361,7 +363,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
               anticipo: anticipo,
               metodoPago: metodoPago,
               digitos: digitos,
-              llego: llego));
+              llego: llego,
+              descuento: 0.0,
+              razonDescuento: ''));
         }
       } else {
         final excel = excel_lib.Excel.decodeBytes(bytes);
@@ -433,7 +437,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                 anticipo: anticipo,
                 metodoPago: metodoPago,
                 digitos: digitos,
-                llego: llego));
+                llego: llego,
+                descuento: 0.0,
+                razonDescuento: ''));
           }
         }
       }
@@ -468,6 +474,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       'Efectivo',
       'Tarjeta',
       'Transferencia',
+      'Descuento',
+      'Razon Descuento',
+      'Total Final',
       'Tarjeta Ultimos 4',
       'Transferencia Ultimos 4',
       'Llego',
@@ -515,12 +524,14 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       }
 
       final total = double.parse((eff + card + trf).toStringAsFixed(2));
+      final descuento = a.descuento;
+      final totalFinal = double.parse((total - descuento).toStringAsFixed(2));
 
       // Acumular totales para la fila final
       sumEff += eff;
       sumCard += card;
       sumTrf += trf;
-      sumTotal += total;
+      sumTotal += totalFinal;
 
       sheet?.appendRow([
         a.nombre,
@@ -529,6 +540,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
         eff,
         card,
         trf,
+        descuento,
+        a.razonDescuento,
+        totalFinal,
         card4 ?? '',
         trf4 ?? '',
         a.llego == true ? 'Sí' : (a.llego == false ? 'No' : ''),
@@ -540,10 +554,13 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     sheet?.appendRow([
       'Totales',
       '',
-      double.parse(sumTotal.toStringAsFixed(2)),
+      '',
       double.parse(sumEff.toStringAsFixed(2)),
       double.parse(sumCard.toStringAsFixed(2)),
       double.parse(sumTrf.toStringAsFixed(2)),
+      '',
+      '',
+      double.parse(sumTotal.toStringAsFixed(2)),
       '',
       '',
       '',
@@ -714,6 +731,8 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
               metodoPago: getAt(metodoIdx),
               digitos: getAt(digitosIdx),
               llego: llego,
+              descuento: 0.0,
+              razonDescuento: '',
             ));
           }
         }
@@ -891,6 +910,12 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     bool selTransfer = existing.any((e) => e.method == 'Transferencia');
     bool selTarjeta = existing.any((e) => e.method == 'Tarjeta');
 
+    // Controladores para descuento
+    final descuentoCtrl = TextEditingController(
+        text: alumna.descuento > 0 ? alumna.descuento.toString() : '');
+    final razonDescuentoCtrl =
+        TextEditingController(text: alumna.razonDescuento);
+
     double _findAmt(String method) => existing
         .firstWhere((e) => e.method == method,
             orElse: () => _PayPart(method: method, amount: 0))
@@ -1046,6 +1071,74 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                       ),
                     ),
                     const SizedBox(height: 16),
+                    // Sección de descuento
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.discount,
+                                  color: Colors.orange.shade700, size: 18),
+                              const SizedBox(width: 6),
+                              Text('Descuento (opcional):',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 13.5,
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: descuentoCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: 'Monto',
+                                    prefixText: '\$',
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 8),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: razonDescuentoCtrl,
+                                  decoration: InputDecoration(
+                                    labelText: 'Razón',
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Icon(Icons.info_outline, color: _gradientEnd, size: 18),
@@ -1096,6 +1189,11 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                 }
                                 final total = parts.fold<double>(
                                     0, (s, p) => s + p.amount);
+                                final descuento = double.tryParse(
+                                        descuentoCtrl.text.trim()) ??
+                                    0.0;
+                                final razonDesc =
+                                    razonDescuentoCtrl.text.trim();
                                 setState(() {
                                   _alumnas[index].llego = false;
                                   if (total > 0)
@@ -1123,6 +1221,8 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                       (tarjeta.last4?.isNotEmpty ?? false)
                                           ? (tarjeta.last4 ?? '')
                                           : (transfer.last4 ?? '');
+                                  _alumnas[index].descuento = descuento;
+                                  _alumnas[index].razonDescuento = razonDesc;
                                 });
                                 _multiPays[mpKey] = parts;
                                 await _saveAlumnas(_alumnas);
@@ -1190,6 +1290,11 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                 }
                                 final total = parts.fold<double>(
                                     0, (s, p) => s + p.amount);
+                                final descuento = double.tryParse(
+                                        descuentoCtrl.text.trim()) ??
+                                    0.0;
+                                final razonDesc =
+                                    razonDescuentoCtrl.text.trim();
                                 setState(() {
                                   _alumnas[index].llego = true;
                                   if (total > 0)
@@ -1216,6 +1321,8 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                       (tarjeta.last4?.isNotEmpty ?? false)
                                           ? (tarjeta.last4 ?? '')
                                           : (transfer.last4 ?? '');
+                                  _alumnas[index].descuento = descuento;
+                                  _alumnas[index].razonDescuento = razonDesc;
                                 });
                                 _multiPays[mpKey] = parts;
                                 await _saveAlumnas(_alumnas);
@@ -1778,6 +1885,39 @@ class _AlumnoCardState extends State<_AlumnoCard> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                      if (a.descuento > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.discount,
+                                size: 14, color: Colors.orange.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Descuento: -\$${a.descuento.toInt()}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12.5,
+                                color: Colors.orange.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (a.razonDescuento.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '(${a.razonDescuento})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11.5,
+                                    color: Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -1838,12 +1978,28 @@ class _AlumnoCardState extends State<_AlumnoCard> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        '\$${a.anticipo.toInt()}',
-                        style: GoogleFonts.poppins(
-                          fontSize: isWide ? 22 : 20,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (a.descuento > 0)
+                            Text(
+                              '\$${a.anticipo.toInt()}',
+                              style: GoogleFonts.poppins(
+                                fontSize: isWide ? 14 : 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade500,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          Text(
+                            '\$${(a.anticipo - a.descuento).toInt()}',
+                            style: GoogleFonts.poppins(
+                              fontSize: isWide ? 22 : 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(width: 8),
                       Icon(
