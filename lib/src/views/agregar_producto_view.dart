@@ -71,8 +71,10 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
 
       request.fields['nombre'] = _nombreController.text.trim();
       request.fields['cantidad'] = _cantidadController.text.trim();
-      request.fields['precio'] = _precioController.text.trim();
-      request.fields['precioUnitario'] = _precioUnitarioController.text.trim();
+      request.fields['precio'] =
+          _precioUnitarioController.text.trim(); // Precio de Venta
+      request.fields['precioUnitario'] =
+          _precioController.text.trim(); // Precio de Compra
 
       // Determinar MIME type por extensión
       final filename = _imagenNombre!;
@@ -249,14 +251,14 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
                       const SizedBox(height: 20),
                       _buildTextField(
                         _precioController,
-                        'Precio',
+                        'Precio de Venta',
                         icon: Icons.attach_money,
                         isDecimal: true,
                       ),
                       const SizedBox(height: 20),
                       _buildTextField(
                         _precioUnitarioController,
-                        'Precio Unitario',
+                        'Precio de Compra',
                         icon: Icons.monetization_on,
                         isDecimal: true,
                       ),

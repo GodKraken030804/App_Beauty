@@ -56,6 +56,9 @@ class _VentasViewState extends State<VentasView> {
   // Tracking de artículos especiales
   final Set<int> _articulosRegalo = {}; // Índices de items marcados como regalo
   final Set<int> _articulosPractica = {}; // Índices de items para práctica
+  final Map<int, String> _descripcionesRegalo = {}; // Descripciones de regalos
+  final Map<int, String> _descripcionesPractica =
+      {}; // Descripciones de prácticas
 
   @override
   void initState() {
@@ -255,9 +258,17 @@ class _VentasViewState extends State<VentasView> {
         // Agregar indicadores especiales
         if (esRegalo) {
           productoData['es_regalo'] = true;
+          final desc = _descripcionesRegalo[i];
+          if (desc != null && desc.isNotEmpty) {
+            productoData['descripcion_regalo'] = desc;
+          }
         }
         if (esPractica) {
           productoData['es_practica'] = true;
+          final desc = _descripcionesPractica[i];
+          if (desc != null && desc.isNotEmpty) {
+            productoData['descripcion_practica'] = desc;
+          }
         }
 
         productos.add(productoData);
@@ -418,18 +429,42 @@ class _VentasViewState extends State<VentasView> {
                       final precioStr = p['precio']?.toString() ?? '0.00';
                       final precio = double.tryParse(precioStr) ?? 0.0;
 
+                      String? descripcion;
+                      if (esRegalo) {
+                        descripcion = _descripcionesRegalo[idx];
+                      } else if (esPractica) {
+                        descripcion = _descripcionesPractica[idx];
+                      }
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                    child: Text(
+                                        '${p['nombre']} x${p['cantidad']}$extras',
+                                        style: GoogleFonts.poppins())),
+                                Text('\$${precio.toStringAsFixed(2)}',
+                                    style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            if (descripcion != null && descripcion.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8, top: 2),
                                 child: Text(
-                                    '${p['nombre']} x${p['cantidad']}$extras',
-                                    style: GoogleFonts.poppins())),
-                            Text('\$${precio.toStringAsFixed(2)}',
-                                style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w600)),
+                                  '↳ $descripcion',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       );
@@ -539,6 +574,8 @@ class _VentasViewState extends State<VentasView> {
           // Limpiar marcadores de artículos especiales
           _articulosRegalo.clear();
           _articulosPractica.clear();
+          _descripcionesRegalo.clear();
+          _descripcionesPractica.clear();
         });
 
         _showTopBar(
@@ -582,6 +619,90 @@ class _VentasViewState extends State<VentasView> {
       duration: const Duration(seconds: 3),
       animationDuration: const Duration(milliseconds: 400),
     ).show(context);
+  }
+
+  Future<void> _mostrarDialogoDescripcion(int index, bool esRegalo) async {
+    final tipo = esRegalo ? 'Regalo' : 'Práctica';
+    final emoji = esRegalo ? '🎁' : '📚';
+    final controller = TextEditingController(
+        text: esRegalo
+            ? (_descripcionesRegalo[index] ?? '')
+            : (_descripcionesPractica[index] ?? ''));
+
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 8),
+            Text('Descripción de $tipo',
+                style: GoogleFonts.poppins(fontSize: 18)),
+          ],
+        ),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: InputDecoration(
+            labelText: '¿Por qué es un $tipo?',
+            hintText: 'Ej: Promoción del mes, Material de curso, etc.',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Cancelar - remover la marca
+              setState(() {
+                if (esRegalo) {
+                  _articulosRegalo.remove(index);
+                  _descripcionesRegalo.remove(index);
+                } else {
+                  _articulosPractica.remove(index);
+                  _descripcionesPractica.remove(index);
+                }
+              });
+              Navigator.pop(context);
+            },
+            child: Text('Cancelar', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final descripcion = controller.text.trim();
+              if (descripcion.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Por favor ingresa una descripción',
+                        style: GoogleFonts.poppins()),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+              setState(() {
+                if (esRegalo) {
+                  _descripcionesRegalo[index] = descripcion;
+                } else {
+                  _descripcionesPractica[index] = descripcion;
+                }
+              });
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: gradientEnd,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text('Guardar',
+                style: GoogleFonts.poppins(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   // Elimina del backend los items del carrito del encargado dado.
@@ -1007,13 +1128,41 @@ class _VentasViewState extends State<VentasView> {
                                     if (p['es_practica'] == true)
                                       extras += ' 📚';
 
-                                    return ListTile(
-                                      dense: true,
-                                      title: Text('$nombre$extras',
-                                          style: GoogleFonts.poppins()),
-                                      trailing: Text('${cantidad} x \$$precio',
-                                          style: GoogleFonts.poppins(
-                                              fontWeight: FontWeight.w600)),
+                                    final descripcionRegalo =
+                                        p['descripcion_regalo']?.toString();
+                                    final descripcionPractica =
+                                        p['descripcion_practica']?.toString();
+                                    final descripcion = descripcionRegalo ??
+                                        descripcionPractica;
+
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        ListTile(
+                                          dense: true,
+                                          title: Text('$nombre$extras',
+                                              style: GoogleFonts.poppins()),
+                                          trailing: Text(
+                                              '${cantidad} x \$$precio',
+                                              style: GoogleFonts.poppins(
+                                                  fontWeight: FontWeight.w600)),
+                                        ),
+                                        if (descripcion != null &&
+                                            descripcion.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                left: 72, bottom: 8),
+                                            child: Text(
+                                              '↳ $descripcion',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     );
                                   }),
                                   Padding(
@@ -1140,15 +1289,16 @@ class _VentasViewState extends State<VentasView> {
         'Descripcion Descuento',
         'Productos',
         'Cantidades',
-        'Precios Unitarios',
-        'Precios Venta',
+        'Precios de Compra',
+        'Precios de Venta',
         'Ganancia por Producto',
         'Ganancia Total',
         'Tipo (Venta/Regalo/Practica)',
+        'Descripcion Regalo/Practica',
       ];
       csvRows.add(headers.join(';')); // Usar punto y coma como delimitador
 
-      // Obtener precios unitarios de productos desde el API
+      // Obtener precios de compra de productos desde el API
       final Map<int, double> preciosUnitarios = {};
       try {
         final uri = Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/producto');
@@ -1170,7 +1320,7 @@ class _VentasViewState extends State<VentasView> {
           }
         }
       } catch (e) {
-        debugPrint('Error al obtener precios unitarios: $e');
+        debugPrint('Error al obtener precios de compra: $e');
       }
 
       int appended = 0;
@@ -1263,6 +1413,8 @@ class _VentasViewState extends State<VentasView> {
         final preciosUnitariosStr = <String>[];
         final gananciasStr = <String>[];
         final tipos = <String>[]; // Nuevo: tipo de transacción
+        final descripciones =
+            <String>[]; // Nuevo: descripciones de regalo/práctica
 
         double gananciaVenta = 0.0;
 
@@ -1302,17 +1454,22 @@ class _VentasViewState extends State<VentasView> {
 
               // Determinar el tipo: Regalo, Práctica o Venta
               String tipo = 'Venta';
+              String descripcion = '-';
+
               if (item['es_regalo'] == true) {
                 tipo = 'Regalo';
+                descripcion = item['descripcion_regalo']?.toString() ?? '-';
                 // Los regalos no generan ganancia
               } else if (item['es_practica'] == true) {
                 tipo = 'Practica';
+                descripcion = item['descripcion_practica']?.toString() ?? '-';
                 // Las prácticas no generan ganancia
               } else {
                 // Solo sumar ganancia si es venta real
                 gananciaVenta += gananciaPorProducto;
               }
               tipos.add(tipo);
+              descripciones.add(descripcion);
             }
             // Si tiene 'tipo' == 'descuento', extraer el descuento
             else if (item['tipo'] == 'descuento' && item['descuento'] != null) {
@@ -1356,6 +1513,8 @@ class _VentasViewState extends State<VentasView> {
         final preciosUnitariosStrJoined = preciosUnitariosStr.join(' | ');
         final gananciasStrJoined = gananciasStr.join(' | ');
         final tiposStr = tipos.join(' | '); // Nuevo: tipos separados por |
+        final descripcionesStr =
+            descripciones.join(' | '); // Nuevo: descripciones separadas por |
 
         // Sumar ganancia de esta venta al total general
         gananciaGeneralTotal += gananciaVenta;
@@ -1363,7 +1522,7 @@ class _VentasViewState extends State<VentasView> {
         // Agregar fila al CSV con columnas separadas por método de pago
         // Orden: Folio, Encargado, Fecha, Efectivo, Tarjeta, Transferencia,
         //        Tarjeta Ultimos 4, Transferencia Ultimos 4, Total, Descuento, Descripcion Descuento,
-        //        Productos, Cantidades, Precios Unitarios, Precios Venta, Ganancia por Producto, Ganancia Total, Tipo
+        //        Productos, Cantidades, Precios de Compra, Precios de Venta, Ganancia por Producto, Ganancia Total, Tipo, Descripcion Regalo/Practica
         final row = [
           folio,
           encargado,
@@ -1383,6 +1542,9 @@ class _VentasViewState extends State<VentasView> {
           gananciasStrJoined.isEmpty ? '-' : gananciasStrJoined,
           gananciaVenta.toStringAsFixed(2),
           tiposStr.isEmpty ? '-' : tiposStr, // Nueva columna
+          descripcionesStr.isEmpty
+              ? '-'
+              : descripcionesStr, // Nueva columna de descripciones
         ];
         csvRows.add(row.join(';')); // Usar punto y coma como delimitador
         appended++;
@@ -1783,10 +1945,43 @@ class _VentasViewState extends State<VentasView> {
                                                 ),
                                             ],
                                           ),
-                                          subtitle: Text(
-                                            '$cantidad x \$${precioMostrar.toStringAsFixed(2)}',
-                                            style: GoogleFonts.poppins(
-                                                color: Colors.grey.shade700),
+                                          subtitle: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '$cantidad x \$${precioMostrar.toStringAsFixed(2)}',
+                                                style: GoogleFonts.poppins(
+                                                    color:
+                                                        Colors.grey.shade700),
+                                              ),
+                                              if (esRegalo &&
+                                                  _descripcionesRegalo
+                                                      .containsKey(index)) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '🎁 ${_descripcionesRegalo[index]}',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 11,
+                                                    color: Colors.pink.shade700,
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                ),
+                                              ],
+                                              if (esPractica &&
+                                                  _descripcionesPractica
+                                                      .containsKey(index)) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '📚 ${_descripcionesPractica[index]}',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 11,
+                                                    color: Colors.blue.shade700,
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                           trailing: Text(
                                             '\$${totalMostrar.toStringAsFixed(2)}',
@@ -1804,16 +1999,29 @@ class _VentasViewState extends State<VentasView> {
                                                 MainAxisAlignment.end,
                                             children: [
                                               InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    if (esRegalo) {
+                                                onTap: () async {
+                                                  if (esRegalo) {
+                                                    // Si ya es regalo, remover
+                                                    setState(() {
                                                       _articulosRegalo
                                                           .remove(index);
-                                                    } else {
+                                                      _descripcionesRegalo
+                                                          .remove(index);
+                                                    });
+                                                  } else {
+                                                    // Si no es regalo, marcar y pedir descripción
+                                                    setState(() {
                                                       _articulosRegalo
                                                           .add(index);
-                                                    }
-                                                  });
+                                                      // Remover de práctica si estaba
+                                                      _articulosPractica
+                                                          .remove(index);
+                                                      _descripcionesPractica
+                                                          .remove(index);
+                                                    });
+                                                    await _mostrarDialogoDescripcion(
+                                                        index, true);
+                                                  }
                                                 },
                                                 child: Container(
                                                   padding: const EdgeInsets
@@ -1852,16 +2060,29 @@ class _VentasViewState extends State<VentasView> {
                                               ),
                                               const SizedBox(width: 8),
                                               InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    if (esPractica) {
+                                                onTap: () async {
+                                                  if (esPractica) {
+                                                    // Si ya es práctica, remover
+                                                    setState(() {
                                                       _articulosPractica
                                                           .remove(index);
-                                                    } else {
+                                                      _descripcionesPractica
+                                                          .remove(index);
+                                                    });
+                                                  } else {
+                                                    // Si no es práctica, marcar y pedir descripción
+                                                    setState(() {
                                                       _articulosPractica
                                                           .add(index);
-                                                    }
-                                                  });
+                                                      // Remover de regalo si estaba
+                                                      _articulosRegalo
+                                                          .remove(index);
+                                                      _descripcionesRegalo
+                                                          .remove(index);
+                                                    });
+                                                    await _mostrarDialogoDescripcion(
+                                                        index, false);
+                                                  }
                                                 },
                                                 child: Container(
                                                   padding: const EdgeInsets

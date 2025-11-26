@@ -246,7 +246,7 @@ class _InventarioViewState extends State<InventarioView> {
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Precio',
+                              labelText: 'Precio de Venta',
                               prefixIcon: Icon(Icons.attach_money),
                             ),
                           ),
@@ -793,26 +793,26 @@ class _InventarioViewState extends State<InventarioView> {
     // Crear solo la hoja de Inventario
     final sheet = archivoExcel['Inventario'];
 
-    // Encabezados: Nombre, Precio, Precio Unitario, Cantidad
+    // Encabezados: Nombre, Precio de Venta, Precio de Compra, Cantidad
     sheet.appendRow([
       'Nombre',
-      'Precio',
-      'Precio Unitario',
+      'Precio de Venta',
+      'Precio de Compra',
       'Cantidad',
     ]);
 
     // Agregar productos con la información solicitada
     for (var p in productos) {
       final cantidad = p['cantidad']?.toString() ?? '0';
-      final precio =
-          p['precio']?.toString() ?? '0'; // Precio normal del producto
-      final precioUnitario =
-          p['precioUnitario']?.toString() ?? '0'; // Precio por unidad
+      final precio = p['precio']?.toString() ??
+          '0'; // Precio de venta (lo que cobra al cliente)
+      final precioUnitario = p['precioUnitario']?.toString() ??
+          '0'; // Precio de compra (lo que pagó)
 
       sheet.appendRow([
         p['nombre']?.toString() ?? '',
-        precio, // Precio normal (ej: 200)
-        precioUnitario, // Precio unitario (ej: 100)
+        precio, // Precio de venta (ej: 25.50)
+        precioUnitario, // Precio de compra (ej: 30.50)
         cantidad,
       ]);
     }
@@ -1378,7 +1378,7 @@ class _ProductTileAdminState extends State<_ProductTileAdmin> {
                                       color: Color(0xFFF26AB6), size: 16),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Unit: ${widget.precioUnitarioTexto}',
+                                    'Compra: ${widget.precioUnitarioTexto}',
                                     style: const TextStyle(
                                       color: Color(0xFFF26AB6),
                                       fontWeight: FontWeight.w600,
