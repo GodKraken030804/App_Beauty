@@ -196,6 +196,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       final digitosIdx =
           findIndexX(['4 dígitos', '4 digitos', 'digitos', 'ultimos 4']) ?? 4;
       final llegoIdx = findIndexX(['llego', 'llegó', 'asistio', 'asistió']);
+      final pagoRestanteIdx = findIndexX(['pago restante', 'restante']);
+      final descripcionIdx = findIndexX(
+          ['descripcion', 'descripción', 'nota', 'observacion', 'observación']);
 
       for (int r = 1; r < hoja.maxRows; r++) {
         final fila = hoja.row(r).map((c) => c?.value.toString() ?? '').toList();
@@ -207,6 +210,8 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
             double.tryParse(getAt(anticipoIdx).replaceAll(',', '.')) ?? 0.0;
         final metodoPago = getAt(metodoIdx);
         final digitos = getAt(digitosIdx);
+        final pagoRestante =
+            double.tryParse(getAt(pagoRestanteIdx).replaceAll(',', '.')) ?? 0.0;
 
         bool? llego;
         if (llegoIdx != null) {
@@ -230,7 +235,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
             digitos: digitos,
             llego: llego,
             descuento: 0.0,
-            razonDescuento: ''));
+            razonDescuento: '',
+            pagoRestante: pagoRestante,
+            descripcion: descripcionIdx != null ? getAt(descripcionIdx) : ''));
       }
     } catch (e) {
       debugPrint('Error parseando Excel: $e');
@@ -330,6 +337,14 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
         final digitosIdx =
             findIndex(['4 dígitos', '4 digitos', 'digitos', 'ultimos 4']) ?? 4;
         final llegoIdx = findIndex(['llego', 'llegó', 'asistio', 'asistió']);
+        final pagoRestanteIdx = findIndex(['pago restante', 'restante']);
+        final descripcionIdx = findIndex([
+          'descripcion',
+          'descripción',
+          'nota',
+          'observacion',
+          'observación'
+        ]);
 
         for (int r = 1; r < lines.length; r++) {
           final row = parseCsvLine(lines[r]);
@@ -341,6 +356,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
               double.tryParse(getAt(anticipoIdx).replaceAll(',', '.')) ?? 0.0;
           final metodoPago = getAt(metodoIdx);
           final digitos = getAt(digitosIdx);
+          final pagoRestante =
+              double.tryParse(getAt(pagoRestanteIdx).replaceAll(',', '.')) ??
+                  0.0;
 
           bool? llego;
           if (llegoIdx != null) {
@@ -365,7 +383,10 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
               digitos: digitos,
               llego: llego,
               descuento: 0.0,
-              razonDescuento: ''));
+              razonDescuento: '',
+              pagoRestante: pagoRestante,
+              descripcion:
+                  descripcionIdx != null ? getAt(descripcionIdx) : ''));
         }
       } else {
         final excel = excel_lib.Excel.decodeBytes(bytes);
@@ -402,6 +423,14 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
               findIndexX(['4 dígitos', '4 digitos', 'digitos', 'ultimos 4']) ??
                   4;
           final llegoIdx = findIndexX(['llego', 'llegó', 'asistio', 'asistió']);
+          final pagoRestanteIdx = findIndexX(['pago restante', 'restante']);
+          final descripcionIdx = findIndexX([
+            'descripcion',
+            'descripción',
+            'nota',
+            'observacion',
+            'observación'
+          ]);
 
           for (int r = 1; r < hoja.maxRows; r++) {
             final fila =
@@ -415,6 +444,9 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                 double.tryParse(getAt(anticipoIdx).replaceAll(',', '.')) ?? 0.0;
             final metodoPago = getAt(metodoIdx);
             final digitos = getAt(digitosIdx);
+            final pagoRestante =
+                double.tryParse(getAt(pagoRestanteIdx).replaceAll(',', '.')) ??
+                    0.0;
 
             bool? llego;
             if (llegoIdx != null) {
@@ -439,7 +471,10 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                 digitos: digitos,
                 llego: llego,
                 descuento: 0.0,
-                razonDescuento: ''));
+                razonDescuento: '',
+                pagoRestante: pagoRestante,
+                descripcion:
+                    descripcionIdx != null ? getAt(descripcionIdx) : ''));
           }
         }
       }
@@ -480,6 +515,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       'Tarjeta Ultimos 4',
       'Transferencia Ultimos 4',
       'Llego',
+      'Descripcion',
     ];
     sheet?.appendRow(header);
 
@@ -493,59 +529,74 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       double eff = 0.0, card = 0.0, trf = 0.0;
       String? card4;
       String? trf4;
+      double descuento = a.descuento;
 
-      if (parts.isNotEmpty) {
-        for (final p in parts) {
-          switch (p.method) {
-            case 'Efectivo':
-              eff += p.amount;
-              break;
-            case 'Tarjeta':
-              card += p.amount;
-              card4 ??= (p.last4 ?? '').trim().isNotEmpty ? p.last4 : null;
-              break;
-            case 'Transferencia':
-              trf += p.amount;
-              trf4 ??= (p.last4 ?? '').trim().isNotEmpty ? p.last4 : null;
-              break;
+      bool noAsistio = a.llego == false; // regla: si NO asistió => totales 0
+      if (!noAsistio) {
+        if (parts.isNotEmpty) {
+          for (final p in parts) {
+            switch (p.method) {
+              case 'Efectivo':
+                eff += p.amount;
+                break;
+              case 'Tarjeta':
+                card += p.amount;
+                card4 ??= (p.last4 ?? '').trim().isNotEmpty ? p.last4 : null;
+                break;
+              case 'Transferencia':
+                trf += p.amount;
+                trf4 ??= (p.last4 ?? '').trim().isNotEmpty ? p.last4 : null;
+                break;
+            }
+          }
+        } else {
+          final m = a.metodoPago.toLowerCase();
+          if (m.contains('tarjeta')) {
+            card = a.anticipo;
+            card4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
+          } else if (m.contains('transfer')) {
+            trf = a.anticipo;
+            trf4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
+          } else if (m.contains('efectivo') || m.isEmpty) {
+            eff = a.anticipo;
           }
         }
       } else {
-        final m = a.metodoPago.toLowerCase();
-        if (m.contains('tarjeta')) {
-          card = a.anticipo;
-          card4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
-        } else if (m.contains('transfer')) {
-          trf = a.anticipo;
-          trf4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
-        } else if (m.contains('efectivo') || m.isEmpty) {
-          eff = a.anticipo;
-        }
+        // Si no asistió: fuerza descuento y totales a 0 y campos vacíos
+        eff = 0;
+        card = 0;
+        trf = 0;
+        descuento = 0;
+        card4 = null;
+        trf4 = null;
       }
 
       final total = double.parse((eff + card + trf).toStringAsFixed(2));
-      final descuento = a.descuento;
       final totalFinal = double.parse((total - descuento).toStringAsFixed(2));
 
       // Acumular totales para la fila final
-      sumEff += eff;
-      sumCard += card;
-      sumTrf += trf;
-      sumTotal += totalFinal;
+      // Sólo acumular si asistió (para que totales globales reflejen ingresos efectivos)
+      if (!noAsistio) {
+        sumEff += eff;
+        sumCard += card;
+        sumTrf += trf;
+        sumTotal += totalFinal;
+      }
 
       sheet?.appendRow([
         a.nombre,
         a.servicio,
-        total,
-        eff,
-        card,
-        trf,
-        descuento,
-        a.razonDescuento,
-        totalFinal,
-        card4 ?? '',
-        trf4 ?? '',
+        noAsistio ? 0 : total,
+        noAsistio ? 0 : eff,
+        noAsistio ? 0 : card,
+        noAsistio ? 0 : trf,
+        noAsistio ? 0 : descuento,
+        noAsistio ? '' : a.razonDescuento,
+        noAsistio ? 0 : totalFinal,
+        noAsistio ? '' : (card4 ?? ''),
+        noAsistio ? '' : (trf4 ?? ''),
         a.llego == true ? 'Sí' : (a.llego == false ? 'No' : ''),
+        noAsistio ? '' : a.descripcion,
       ]);
     }
 
@@ -561,6 +612,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       '',
       '',
       double.parse(sumTotal.toStringAsFixed(2)),
+      '',
       '',
       '',
       '',
@@ -706,6 +758,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
               findIndex(['4 dígitos', '4 digitos', 'digitos', 'ultimos 4']) ??
                   4;
           final llegoIdx = findIndex(['llego', 'llegó', 'asistio', 'asistió']);
+          final pagoRestanteIdx = findIndex(['pago restante', 'restante']);
 
           for (int r = 1; r < lines.length; r++) {
             final row = parseCsvLine(lines[r]);
@@ -733,6 +786,10 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
               llego: llego,
               descuento: 0.0,
               razonDescuento: '',
+              pagoRestante: double.tryParse(
+                      getAt(pagoRestanteIdx).replaceAll(',', '.')) ??
+                  0.0,
+              descripcion: '',
             ));
           }
         }
@@ -915,6 +972,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
         text: alumna.descuento > 0 ? alumna.descuento.toString() : '');
     final razonDescuentoCtrl =
         TextEditingController(text: alumna.razonDescuento);
+    final descripcionCtrl = TextEditingController(text: alumna.descripcion);
 
     double _findAmt(String method) => existing
         .firstWhere((e) => e.method == method,
@@ -1071,71 +1129,156 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Sección de descuento
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange.shade200),
+                    // ExpansionTile para descuento discreto
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: ExpansionTile(
+                          tilePadding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          childrenPadding:
+                              const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          iconColor: Colors.orange.shade700,
+                          collapsedIconColor: Colors.orange.shade700,
+                          title: Row(
                             children: [
                               Icon(Icons.discount,
-                                  color: Colors.orange.shade700, size: 18),
-                              const SizedBox(width: 6),
-                              Text('Descuento (opcional):',
+                                  color: Colors.orange.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Text('Aplicar descuento',
                                   style: GoogleFonts.poppins(
-                                      fontSize: 13.5,
-                                      color: Colors.grey[700],
-                                      fontWeight: FontWeight.w600)),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.orange.shade900)),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Row(
+                          subtitle: (alumna.descuento > 0 ||
+                                  descuentoCtrl.text.isNotEmpty)
+                              ? Text(
+                                  'Descuento actual: \$${descuentoCtrl.text.isNotEmpty ? descuentoCtrl.text : alumna.descuento.toString()}',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.orange.shade800))
+                              : Text('Ninguno',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.orange.shade800)),
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: descuentoCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: 'Monto',
+                                      prefixText: '\$',
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 8),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: razonDescuentoCtrl,
+                                    decoration: InputDecoration(
+                                      labelText: 'Razón',
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 8),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // ExpansionTile para descripción discreta
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blueGrey.shade100),
+                        ),
+                        child: ExpansionTile(
+                          tilePadding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          childrenPadding:
+                              const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          iconColor: Colors.blueGrey.shade600,
+                          collapsedIconColor: Colors.blueGrey.shade600,
+                          title: Row(
                             children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: descuentoCtrl,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: 'Monto',
-                                    prefixText: '\$',
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 8),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                flex: 3,
-                                child: TextFormField(
-                                  controller: razonDescuentoCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: 'Razón',
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 8),
-                                  ),
-                                ),
-                              ),
+                              Icon(Icons.notes,
+                                  color: Colors.blueGrey.shade600, size: 20),
+                              const SizedBox(width: 8),
+                              Text('Descripción / Nota',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blueGrey.shade800)),
                             ],
                           ),
-                        ],
+                          subtitle: descripcionCtrl.text.trim().isNotEmpty
+                              ? Text(descripcionCtrl.text.trim(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.blueGrey.shade700))
+                              : Text('Sin nota',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.blueGrey.shade700)),
+                          children: [
+                            TextFormField(
+                              controller: descripcionCtrl,
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                labelText: 'Descripción / Observación',
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1195,12 +1338,6 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                 final razonDesc =
                                     razonDescuentoCtrl.text.trim();
                                 setState(() {
-                                  _alumnas[index].llego = false;
-                                  if (total > 0)
-                                    _alumnas[index].anticipo = total;
-                                  _alumnas[index].metodoPago = parts.isEmpty
-                                      ? ''
-                                      : parts.map((p) => p.method).join(' + ');
                                   final tarjeta = parts.firstWhere(
                                       (p) =>
                                           p.method == 'Tarjeta' &&
@@ -1217,12 +1354,25 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                           method: 'Transferencia',
                                           amount: 0,
                                           last4: ''));
-                                  _alumnas[index].digitos =
+                                  final newDigits =
                                       (tarjeta.last4?.isNotEmpty ?? false)
                                           ? (tarjeta.last4 ?? '')
                                           : (transfer.last4 ?? '');
-                                  _alumnas[index].descuento = descuento;
-                                  _alumnas[index].razonDescuento = razonDesc;
+                                  final metodo = parts.isEmpty
+                                      ? ''
+                                      : parts.map((p) => p.method).join(' + ');
+                                  final updated = _alumnas[index].copyWith(
+                                    llego: false,
+                                    anticipo: total > 0
+                                        ? total
+                                        : _alumnas[index].anticipo,
+                                    metodoPago: metodo,
+                                    digitos: newDigits,
+                                    descuento: descuento,
+                                    razonDescuento: razonDesc,
+                                    descripcion: descripcionCtrl.text.trim(),
+                                  );
+                                  _alumnas[index] = updated;
                                 });
                                 _multiPays[mpKey] = parts;
                                 await _saveAlumnas(_alumnas);
@@ -1296,11 +1446,6 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                 final razonDesc =
                                     razonDescuentoCtrl.text.trim();
                                 setState(() {
-                                  _alumnas[index].llego = true;
-                                  if (total > 0)
-                                    _alumnas[index].anticipo = total;
-                                  _alumnas[index].metodoPago =
-                                      parts.map((p) => p.method).join(' + ');
                                   final tarjeta = parts.firstWhere(
                                       (p) =>
                                           p.method == 'Tarjeta' &&
@@ -1317,12 +1462,24 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                           method: 'Transferencia',
                                           amount: 0,
                                           last4: ''));
-                                  _alumnas[index].digitos =
+                                  final newDigits =
                                       (tarjeta.last4?.isNotEmpty ?? false)
                                           ? (tarjeta.last4 ?? '')
                                           : (transfer.last4 ?? '');
-                                  _alumnas[index].descuento = descuento;
-                                  _alumnas[index].razonDescuento = razonDesc;
+                                  final metodo =
+                                      parts.map((p) => p.method).join(' + ');
+                                  final updated = _alumnas[index].copyWith(
+                                    llego: true,
+                                    anticipo: total > 0
+                                        ? total
+                                        : _alumnas[index].anticipo,
+                                    metodoPago: metodo,
+                                    digitos: newDigits,
+                                    descuento: descuento,
+                                    razonDescuento: razonDesc,
+                                    descripcion: descripcionCtrl.text.trim(),
+                                  );
+                                  _alumnas[index] = updated;
                                 });
                                 _multiPays[mpKey] = parts;
                                 await _saveAlumnas(_alumnas);
@@ -1796,6 +1953,14 @@ class _AlumnoCardState extends State<_AlumnoCard> {
     final s = widget.status;
     final width = MediaQuery.of(context).size.width;
     final bool isWide = width > 420;
+    // Escala responsiva para textos en pantallas pequeñas
+    final double scale = width < 300
+        ? 0.78
+        : width < 340
+            ? 0.85
+            : width < 380
+                ? 0.92
+                : 1.0;
     final bool showDigits =
         (a.metodoPago == 'Tarjeta' || a.metodoPago == 'Transferencia') &&
             a.digitos.isNotEmpty;
@@ -1859,7 +2024,7 @@ class _AlumnoCardState extends State<_AlumnoCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 18,
+                          fontSize: 18 * scale,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -1869,7 +2034,7 @@ class _AlumnoCardState extends State<_AlumnoCard> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 14.5,
+                          fontSize: 14.5 * scale,
                           color: Colors.grey.shade600,
                         ),
                       ),
@@ -1880,7 +2045,7 @@ class _AlumnoCardState extends State<_AlumnoCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 13,
+                            fontSize: 13 * scale,
                             color: Colors.grey.shade800,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1890,31 +2055,21 @@ class _AlumnoCardState extends State<_AlumnoCard> {
                         Row(
                           children: [
                             Icon(Icons.discount,
-                                size: 14, color: Colors.orange.shade700),
+                                size: 14 * scale,
+                                color: Colors.orange.shade700),
                             const SizedBox(width: 4),
-                            Text(
-                              'Descuento: -\$${a.descuento.toInt()}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12.5,
-                                color: Colors.orange.shade700,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (a.razonDescuento.isNotEmpty) ...[
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  '(${a.razonDescuento})',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11.5,
-                                    color: Colors.grey.shade600,
-                                    fontStyle: FontStyle.italic,
-                                  ),
+                            Flexible(
+                              child: Text(
+                                '-\$${a.descuento.toInt()}${a.razonDescuento.isNotEmpty ? ' (${a.razonDescuento})' : ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12.5 * scale,
+                                  color: Colors.orange.shade700,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ],
@@ -1963,53 +2118,59 @@ class _AlumnoCardState extends State<_AlumnoCard> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: (a.llego == null
-                          ? Colors.grey.shade200
-                          : s.bgStart.withOpacity(0.4)),
+                Flexible(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: (a.llego == null
+                            ? Colors.grey.shade200
+                            : s.bgStart.withOpacity(0.4)),
+                      ),
                     ),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (a.descuento > 0)
-                            Text(
-                              '\$${a.anticipo.toInt()}',
-                              style: GoogleFonts.poppins(
-                                fontSize: isWide ? 14 : 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey.shade500,
-                                decoration: TextDecoration.lineThrough,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (a.descuento > 0)
+                                Text(
+                                  '\$${a.pagoRestante.toInt()}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: (isWide ? 14 : 13) * scale,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey.shade500,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              Text(
+                                '\$${(a.pagoRestante - a.descuento).toInt()}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: (isWide ? 22 : 20) * scale,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                            ),
-                          Text(
-                            '\$${(a.anticipo - a.descuento).toInt()}',
-                            style: GoogleFonts.poppins(
-                              fontSize: isWide ? 22 : 20,
-                              fontWeight: FontWeight.w800,
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        a.llego == null
-                            ? Icons.help_outline
-                            : (a.llego! ? Icons.check_circle : Icons.cancel),
-                        size: isWide ? 26 : 24,
-                        color: a.llego == null ? Colors.grey[400] : s.iconColor,
-                      ),
-                    ],
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          a.llego == null
+                              ? Icons.help_outline
+                              : (a.llego! ? Icons.check_circle : Icons.cancel),
+                          size: (isWide ? 26 : 24) * scale,
+                          color:
+                              a.llego == null ? Colors.grey[400] : s.iconColor,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

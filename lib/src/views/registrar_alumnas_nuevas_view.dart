@@ -708,6 +708,10 @@ class _RegistrarAlumnasNuevasViewState
           metodoPago: metodoResumen,
           digitos: digitosResumen,
           llego: true,
+          descuento: 0.0,
+          razonDescuento: '',
+          pagoRestante: 0.0,
+          descripcion: '',
         );
 
         // Guardar en SharedPreferences
