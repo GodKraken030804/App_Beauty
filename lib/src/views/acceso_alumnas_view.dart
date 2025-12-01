@@ -502,16 +502,21 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     final sheet = book.sheets[book.getDefaultSheet() ?? 'Sheet1'];
 
     // Encabezados en formato similar a Ventas: métodos por columna y total
+    // Nueva estructura: se agrega "Anticipo" y una columna "Total Global" que suma Anticipo + (Total - Descuento)
+    // Renombramos "Total" a "Total Pagos" para claridad y "Total Final" a "Total Neto" (pagos - descuento)
+    // "Total Global" = Anticipo + Total Neto
     final header = [
       'Nombre',
       'Servicio',
-      'Total',
+      'Anticipo',
+      'Total Pagos',
       'Efectivo',
       'Tarjeta',
       'Transferencia',
       'Descuento',
       'Razon Descuento',
-      'Total Final',
+      'Total Neto',
+      'Total Global',
       'Tarjeta Ultimos 4',
       'Transferencia Ultimos 4',
       'Llego',
@@ -520,7 +525,12 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     sheet?.appendRow(header);
 
     // Filas de datos con desglose por método
-    double sumEff = 0.0, sumCard = 0.0, sumTrf = 0.0, sumTotal = 0.0;
+    double sumEff = 0.0,
+        sumCard = 0.0,
+        sumTrf = 0.0,
+        sumNeto = 0.0,
+        sumAnticipo = 0.0,
+        sumGlobal = 0.0;
     for (int i = 0; i < _alumnas.length; i++) {
       final a = _alumnas[i];
       final key = _mpKeyForAlumna(a, i);
@@ -552,13 +562,13 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
         } else {
           final m = a.metodoPago.toLowerCase();
           if (m.contains('tarjeta')) {
-            card = a.anticipo;
+            card = a.pagoRestante;
             card4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
           } else if (m.contains('transfer')) {
-            trf = a.anticipo;
+            trf = a.pagoRestante;
             trf4 = a.digitos.trim().isNotEmpty ? a.digitos : null;
           } else if (m.contains('efectivo') || m.isEmpty) {
-            eff = a.anticipo;
+            eff = a.pagoRestante;
           }
         }
       } else {
@@ -571,8 +581,12 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
         trf4 = null;
       }
 
-      final total = double.parse((eff + card + trf).toStringAsFixed(2));
-      final totalFinal = double.parse((total - descuento).toStringAsFixed(2));
+      final totalPagos = double.parse((eff + card + trf).toStringAsFixed(2));
+      // Total Neto = Efectivo + Tarjeta + Transferencia (sin descuento)
+      final totalNeto = double.parse((eff + card + trf).toStringAsFixed(2));
+      // Total Global = Total Pagos + Anticipo
+      final totalGlobal =
+          double.parse((totalPagos + a.anticipo).toStringAsFixed(2));
 
       // Acumular totales para la fila final
       // Sólo acumular si asistió (para que totales globales reflejen ingresos efectivos)
@@ -580,19 +594,23 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
         sumEff += eff;
         sumCard += card;
         sumTrf += trf;
-        sumTotal += totalFinal;
+        sumNeto += totalNeto;
+        sumAnticipo += a.anticipo;
+        sumGlobal += totalGlobal;
       }
 
       sheet?.appendRow([
         a.nombre,
         a.servicio,
-        noAsistio ? 0 : total,
+        noAsistio ? 0 : a.anticipo,
+        noAsistio ? 0 : totalPagos,
         noAsistio ? 0 : eff,
         noAsistio ? 0 : card,
         noAsistio ? 0 : trf,
         noAsistio ? 0 : descuento,
         noAsistio ? '' : a.razonDescuento,
-        noAsistio ? 0 : totalFinal,
+        noAsistio ? 0 : totalNeto,
+        noAsistio ? 0 : totalGlobal,
         noAsistio ? '' : (card4 ?? ''),
         noAsistio ? '' : (trf4 ?? ''),
         a.llego == true ? 'Sí' : (a.llego == false ? 'No' : ''),
@@ -603,19 +621,22 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     // Fila de totales al final del reporte
     sheet?.appendRow([]); // línea en blanco separadora
     sheet?.appendRow([
-      'Totales',
-      '',
-      '',
-      double.parse(sumEff.toStringAsFixed(2)),
-      double.parse(sumCard.toStringAsFixed(2)),
-      double.parse(sumTrf.toStringAsFixed(2)),
-      '',
-      '',
-      double.parse(sumTotal.toStringAsFixed(2)),
-      '',
-      '',
-      '',
-      '',
+      'Totales', // Nombre
+      '', // Servicio
+      double.parse(sumAnticipo.toStringAsFixed(2)), // Anticipo
+      double.parse(
+          (sumEff + sumCard + sumTrf).toStringAsFixed(2)), // Total Pagos
+      double.parse(sumEff.toStringAsFixed(2)), // Efectivo
+      double.parse(sumCard.toStringAsFixed(2)), // Tarjeta
+      double.parse(sumTrf.toStringAsFixed(2)), // Transferencia
+      '', // Descuento (no acumulado aquí)
+      '', // Razon Descuento
+      double.parse(sumNeto.toStringAsFixed(2)), // Total Neto
+      double.parse(sumGlobal.toStringAsFixed(2)), // Total Global
+      '', // Tarjeta Ultimos 4
+      '', // Transferencia Ultimos 4
+      '', // Llego
+      '', // Descripcion
     ]);
 
     final encoded = book.encode();
@@ -1330,8 +1351,6 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                       amount: a,
                                       last4: cardLastCtrl.text.trim()));
                                 }
-                                final total = parts.fold<double>(
-                                    0, (s, p) => s + p.amount);
                                 final descuento = double.tryParse(
                                         descuentoCtrl.text.trim()) ??
                                     0.0;
@@ -1361,11 +1380,10 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                   final metodo = parts.isEmpty
                                       ? ''
                                       : parts.map((p) => p.method).join(' + ');
-                                  final updated = _alumnas[index].copyWith(
+                                  final a0 = _alumnas[index];
+                                  final updated = a0.copyWith(
                                     llego: false,
-                                    anticipo: total > 0
-                                        ? total
-                                        : _alumnas[index].anticipo,
+                                    // NO tocar anticipo: se mantiene el importado
                                     metodoPago: metodo,
                                     digitos: newDigits,
                                     descuento: descuento,
@@ -1438,8 +1456,6 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                       amount: a,
                                       last4: cardLastCtrl.text.trim()));
                                 }
-                                final total = parts.fold<double>(
-                                    0, (s, p) => s + p.amount);
                                 final descuento = double.tryParse(
                                         descuentoCtrl.text.trim()) ??
                                     0.0;
@@ -1468,11 +1484,10 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
                                           : (transfer.last4 ?? '');
                                   final metodo =
                                       parts.map((p) => p.method).join(' + ');
-                                  final updated = _alumnas[index].copyWith(
+                                  final a0 = _alumnas[index];
+                                  final updated = a0.copyWith(
                                     llego: true,
-                                    anticipo: total > 0
-                                        ? total
-                                        : _alumnas[index].anticipo,
+                                    // NO tocar anticipo: se mantiene el importado
                                     metodoPago: metodo,
                                     digitos: newDigits,
                                     descuento: descuento,
