@@ -166,19 +166,12 @@ class _GestionUsuariosViewState extends State<GestionUsuariosView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header con icono
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(
-                      esEdicion ? Icons.edit : Icons.person_add,
-                      color: Colors.white,
-                      size: 40,
+                  // Header con logo
+                  SizedBox(
+                    height: 80,
+                    child: Image.asset(
+                      'assets/images/Logo.png',
+                      fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -385,210 +378,211 @@ class _GestionUsuariosViewState extends State<GestionUsuariosView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _cargarUsuarios,
-              child: _usuarios.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No hay usuarios registrados',
-                        style: GoogleFonts.poppins(
-                            fontSize: 16, color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _usuarios.length,
-                      itemBuilder: (context, index) {
-                        final usuario = _usuarios[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFF26AB6).withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _cargarUsuarios,
+                child: _usuarios.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No hay usuarios registrados',
+                          style: GoogleFonts.poppins(
+                              fontSize: 16, color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        itemCount: _usuarios.length + 1,
+                        itemBuilder: (context, index) {
+                          // Primer item es el logo
+                          if (index == 0) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: SizedBox(
+                                height: 100,
+                                child: Image.asset(
+                                  'assets/images/Logo.png',
+                                  fit: BoxFit.contain,
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
+                            );
+                          }
+
+                          // Los demás items son usuarios
+                          final usuario = _usuarios[index - 1];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(20),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      const Color(0xFFF26AB6).withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  // Avatar con gradiente
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFFF26AB6),
-                                          Color(0xFFAA57EC)
+                            child: Container(
+                              margin: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    // Avatar con gradiente
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFFF26AB6),
+                                            Color(0xFFAA57EC)
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        borderRadius: BorderRadius.circular(15),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFFF26AB6)
+                                                .withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
                                         ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
                                       ),
-                                      borderRadius: BorderRadius.circular(15),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFF26AB6)
-                                              .withOpacity(0.4),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '${usuario['nombre']?[0] ?? ''}${usuario['apellido']?[0] ?? ''}'
-                                            .toUpperCase(),
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 22,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Información del usuario
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${usuario['nombre'] ?? ''} ${usuario['apellido'] ?? ''}',
+                                      child: Center(
+                                        child: Text(
+                                          '${usuario['nombre']?[0] ?? ''}${usuario['apellido']?[0] ?? ''}'
+                                              .toUpperCase(),
                                           style: GoogleFonts.poppins(
+                                            color: Colors.white,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 17,
-                                            color: const Color(0xFF2D3142),
+                                            fontSize: 22,
                                           ),
                                         ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.person,
-                                                size: 14,
-                                                color: Color(0xFF9A9A9A)),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                usuario['usuario'] ?? '',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    // Información del usuario
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${usuario['nombre'] ?? ''} ${usuario['apellido'] ?? ''}',
+                                            style: GoogleFonts.poppins(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 17,
+                                              color: const Color(0xFF2D3142),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.email,
+                                                  size: 14,
+                                                  color: Color(0xFF9A9A9A)),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  usuario['gmail'] ?? '',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 13,
+                                                    color:
+                                                        const Color(0xFF6B6B6B),
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.lock,
+                                                  size: 14,
+                                                  color: Color(0xFF9A9A9A)),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '••••••••',
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 13,
                                                   color:
                                                       const Color(0xFF6B6B6B),
                                                 ),
-                                                overflow: TextOverflow.ellipsis,
                                               ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Botones de acción
+                                    Column(
+                                      children: [
+                                        IconButton(
+                                          onPressed: () =>
+                                              _mostrarFormularioUsuario(
+                                                  usuario: usuario),
+                                          icon: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                colors: [
+                                                  Color(0xFFF26AB6),
+                                                  Color(0xFFAA57EC)
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
-                                          ],
+                                            child: const Icon(Icons.edit,
+                                                color: Colors.white, size: 20),
+                                          ),
+                                          tooltip: 'Editar',
                                         ),
-                                        const SizedBox(height: 3),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.email,
-                                                size: 14,
-                                                color: Color(0xFF9A9A9A)),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                usuario['gmail'] ?? '',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 13,
-                                                  color:
-                                                      const Color(0xFF6B6B6B),
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                        IconButton(
+                                          onPressed: () =>
+                                              _confirmarEliminacion(
+                                            usuario['id'],
+                                            '${usuario['nombre']} ${usuario['apellido']}',
+                                          ),
+                                          icon: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade400,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.badge,
-                                                size: 14,
-                                                color: Color(0xFF9A9A9A)),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Código: ${usuario['codigo'] ?? ''}',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 13,
-                                                color: const Color(0xFF6B6B6B),
-                                              ),
-                                            ),
-                                          ],
+                                            child: const Icon(Icons.delete,
+                                                color: Colors.white, size: 20),
+                                          ),
+                                          tooltip: 'Eliminar',
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  // Botones de acción
-                                  Column(
-                                    children: [
-                                      IconButton(
-                                        onPressed: () =>
-                                            _mostrarFormularioUsuario(
-                                                usuario: usuario),
-                                        icon: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color(0xFFF26AB6),
-                                                Color(0xFFAA57EC)
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
-                                          child: const Icon(Icons.edit,
-                                              color: Colors.white, size: 20),
-                                        ),
-                                        tooltip: 'Editar',
-                                      ),
-                                      IconButton(
-                                        onPressed: () => _confirmarEliminacion(
-                                          usuario['id'],
-                                          '${usuario['nombre']} ${usuario['apellido']}',
-                                        ),
-                                        icon: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.red.shade400,
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
-                                          child: const Icon(Icons.delete,
-                                              color: Colors.white, size: 20),
-                                        ),
-                                        tooltip: 'Eliminar',
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+                          );
+                        },
+                      ),
+              ),
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
