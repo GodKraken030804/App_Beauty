@@ -9,6 +9,7 @@ import 'package:app_beauty/src/views/mi_perfil_admin.dart';
 import 'package:app_beauty/src/views/asignacion_view.dart';
 import 'package:app_beauty/src/views/asignaciones_view.dart';
 import 'package:app_beauty/src/views/admin_inventarios_view.dart';
+import 'package:app_beauty/src/views/gestion_usuarios_view.dart';
 import 'cursos_view.dart';
 
 class AdminView extends StatefulWidget {
@@ -89,6 +90,9 @@ class _AdminViewState extends State<AdminView> {
       case "Ver Cursos":
         destino = const CursosView();
         break;
+      case "Gestión de Usuarios":
+        destino = const GestionUsuariosView();
+        break;
     }
 
     if (destino != null) {
@@ -137,6 +141,7 @@ class _AdminViewState extends State<AdminView> {
                   _buildMenuButton("Agregar Producto", Icons.add_box),
                   _buildMenuButton("Ver Cursos", Icons.school),
                   _buildMenuButton("Asignación", Icons.assignment_ind),
+                  _buildMenuButton("Gestión de Usuarios", Icons.people),
                 ],
               ),
             ],
