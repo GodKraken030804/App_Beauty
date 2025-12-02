@@ -12,6 +12,8 @@ import 'package:file_saver/file_saver.dart';
 import 'package:excel/excel.dart' as ex;
 import 'package:app_beauty/src/views/admin_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_admin.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 class AdminInventarioEncargadoView extends StatefulWidget {
   final int encargadoId;
@@ -477,31 +479,143 @@ class _AdminInventarioEncargadoViewState
       }
       return;
     }
+    // En móvil/desktop: ofrecer Guardar/Enviar como en Acceso Alumnas
+    await _promptSaveOrSend(bytes, filename,
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  }
 
+  Future<void> _promptSaveOrSend(Uint8List bytes, String filename,
+      {required String mimeType}) async {
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Image.asset('assets/images/Logo.png',
+                    height: 80, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 12),
+              Text('Exportar Inventario',
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _gradientActionButton(
+                    label: 'Guardar en Descargas',
+                    icon: Icons.download,
+                    onTap: () async {
+                      final ok = await _saveToDownloads(bytes, filename,
+                          mimeType: mimeType);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok
+                                ? 'Guardado en Descargas'
+                                : 'No se pudo guardar'),
+                          ),
+                        );
+                      }
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                  _gradientActionButton(
+                    label: 'Enviar',
+                    icon: Icons.share,
+                    onTap: () async {
+                      final dir = await getApplicationDocumentsDirectory();
+                      final path = '${dir.path}/$filename';
+                      final file = XFile.fromData(bytes,
+                          name: filename, mimeType: mimeType);
+                      // Algunas apps requieren archivo en disco, por eso escribimos también
+                      await file.saveTo(path);
+                      await Share.shareXFiles([XFile(path)],
+                          text: 'Inventario ${widget.nombre}');
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _saveToDownloads(Uint8List bytes, String filename,
+      {required String mimeType}) async {
+    final dot = filename.lastIndexOf('.');
+    String base = filename;
+    String ext = '';
+    if (dot != -1 && dot < filename.length - 1) {
+      base = filename.substring(0, dot);
+      ext = filename.substring(dot + 1);
+    }
     try {
-      final res = await FileSaver.instance.saveFile(
-        name: filename.replaceAll('.xlsx', ''),
-        ext: 'xlsx',
+      final savedPath = await FileSaver.instance.saveFile(
+        name: base,
+        ext: ext,
         bytes: bytes,
         mimeType: MimeType.other,
       );
-      if (mounted) {
-        final ok = res.toString().isNotEmpty;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ok
-                ? 'Archivo guardado: $filename'
-                : 'No se pudo guardar el archivo'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al guardar: $e')),
-        );
-      }
+      return savedPath.isNotEmpty;
+    } catch (_) {
+      return false;
     }
+  }
+
+  Widget _gradientActionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final borderRadius = BorderRadius.circular(14);
+    return Material(
+      color: Colors.transparent,
+      elevation: 4,
+      shadowColor: Colors.black12,
+      borderRadius: borderRadius,
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: borderRadius,
+        ),
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text(label,
+                    style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // Botón cuadrado con gradiente (coherente con el estilo)

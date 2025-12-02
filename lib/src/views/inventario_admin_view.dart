@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +14,7 @@ import 'package:app_beauty/src/views/admin_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_admin.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:file_saver/file_saver.dart';
 
 class InventarioView extends StatefulWidget {
   const InventarioView({super.key});
@@ -817,17 +819,19 @@ class _InventarioViewState extends State<InventarioView> {
       ]);
     }
 
-    final excelBytes = archivoExcel.encode()!;
+    final encoded = archivoExcel.encode();
+    if (encoded == null) return;
+    final bytes = Uint8List.fromList(encoded);
+    final filename = 'inventario.xlsx';
 
     if (kIsWeb) {
-      // Descargar en web usando blob
-      final blob = html.Blob([excelBytes]);
+      // En web mantenemos descarga directa como en Lista Alumnas
+      final blob = html.Blob([bytes]);
       final url = html.Url.createObjectUrlFromBlob(blob);
       html.AnchorElement(href: url)
-        ..setAttribute('download', 'inventario.xlsx')
+        ..setAttribute('download', filename)
         ..click();
       html.Url.revokeObjectUrl(url);
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -837,13 +841,91 @@ class _InventarioViewState extends State<InventarioView> {
           ),
         );
       }
-    } else {
-      // Descargar en móvil/desktop
-      final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}/inventario.xlsx';
-      final file = File(path);
-      file.writeAsBytesSync(excelBytes);
-      await Share.shareXFiles([XFile(path)], text: 'Inventario App Beauty');
+      return;
+    }
+
+    // En móvil/desktop: ofrecer opciones de Guardar/Enviar como en Acceso Alumnas
+    await _promptSaveOrSend(bytes, filename,
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  }
+
+  Future<void> _promptSaveOrSend(Uint8List bytes, String filename,
+      {required String mimeType}) async {
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Image.asset('assets/images/Logo.png',
+                    height: 80, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 12),
+              Text('Exportar Inventario',
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _botonGradiente('Guardar en Descargas', () async {
+                    final ok = await _saveToDownloads(bytes, filename,
+                        mimeType: mimeType);
+                    if (ok) {
+                      _mostrarFlush('Guardado en Descargas', Icons.check_circle,
+                          Colors.green);
+                    } else {
+                      _mostrarFlush(
+                          'No se pudo guardar', Icons.error, Colors.red);
+                    }
+                    if (context.mounted) Navigator.pop(context);
+                  }, icon: Icons.download),
+                  _botonGradiente('Enviar', () async {
+                    // Guardar temporalmente y compartir
+                    final dir = await getApplicationDocumentsDirectory();
+                    final path = '${dir.path}/$filename';
+                    final file = File(path);
+                    await file.writeAsBytes(bytes, flush: true);
+                    await Share.shareXFiles([XFile(path)],
+                        text: 'Inventario App Beauty');
+                    if (context.mounted) Navigator.pop(context);
+                  }, icon: Icons.share),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _saveToDownloads(Uint8List bytes, String filename,
+      {required String mimeType}) async {
+    final dot = filename.lastIndexOf('.');
+    String base = filename;
+    String ext = '';
+    if (dot != -1 && dot < filename.length - 1) {
+      base = filename.substring(0, dot);
+      ext = filename.substring(dot + 1);
+    }
+    try {
+      final savedPath = await FileSaver.instance.saveFile(
+        name: base,
+        ext: ext,
+        bytes: bytes,
+        mimeType: MimeType.other,
+      );
+      return savedPath.isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 
