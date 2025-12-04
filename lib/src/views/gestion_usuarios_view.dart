@@ -197,8 +197,7 @@ class _GestionUsuariosViewState extends State<GestionUsuariosView> {
                   const SizedBox(height: 16),
                   _buildTextField(codigoController, 'Código', Icons.badge),
                   const SizedBox(height: 16),
-                  _buildTextField(
-                      usuarioController, 'Usuario', Icons.account_circle),
+                  _buildRolDropdown(usuarioController),
                   const SizedBox(height: 16),
                   _buildTextField(
                     passwordController,
@@ -324,6 +323,47 @@ class _GestionUsuariosViewState extends State<GestionUsuariosView> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRolDropdown(TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      style: GoogleFonts.poppins(fontSize: 15),
+      decoration: InputDecoration(
+        labelText: 'Usuario (admin, encargado o pedido)',
+        labelStyle: GoogleFonts.poppins(color: const Color(0xFF9A9A9A)),
+        helperText: 'Opciones: admin, encargado, pedido',
+        helperStyle: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+        prefixIcon: Container(
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child:
+              const Icon(Icons.account_circle, color: Colors.white, size: 20),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(color: Color(0xFFF26AB6), width: 2),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
