@@ -50,31 +50,43 @@ class _InventarioViewState extends State<InventarioView> {
     required String nombre,
     required int cantidad,
     required dynamic precio,
+    required dynamic precioUnitario,
     File? imagenFile,
   }) async {
     final uri =
         Uri.parse("${dotenv.env['API_GATEWAY']}actualizar-producto/$id");
     try {
+      debugPrint('[UPDATE] Actualizando producto ID: $id');
+      debugPrint(
+          '[UPDATE] Datos: nombre=$nombre, cantidad=$cantidad, precio=$precio, precioUnitario=$precioUnitario');
+
       final request = http.MultipartRequest('PUT', uri)
         ..fields['nombre'] = nombre
         ..fields['cantidad'] = cantidad.toString()
-        ..fields['precio'] = precio.toString();
-
+        ..fields['precio'] = precio.toString()
+        ..fields['precioUnitario'] = precioUnitario.toString();
       if (imagenFile != null) {
+        debugPrint('[UPDATE] Imagen adjunta: ${imagenFile.path}');
         request.files
             .add(await http.MultipartFile.fromPath('imagen', imagenFile.path));
       }
 
+      debugPrint('[UPDATE] Enviando request a: $uri');
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
+
+      debugPrint('[UPDATE] Response status: ${response.statusCode}');
+      debugPrint('[UPDATE] Response body: ${response.body}');
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        debugPrint('[UPDATE] ✅ Actualización exitosa');
         return true;
       }
       debugPrint(
-          'Fallo al actualizar producto ($id): ${response.statusCode} -> ${response.body}');
+          '[UPDATE] ❌ Fallo al actualizar producto ($id): ${response.statusCode} -> ${response.body}');
       return false;
     } catch (e) {
-      debugPrint('Error al actualizar producto ($id): $e');
+      debugPrint('[UPDATE] ❌ Error al actualizar producto ($id): $e');
       return false;
     }
   }
@@ -152,6 +164,8 @@ class _InventarioViewState extends State<InventarioView> {
         TextEditingController(text: (producto['cantidad'] ?? 0).toString());
     final precioCtrl =
         TextEditingController(text: producto['precio']?.toString() ?? '0');
+    final precioUnitarioCtrl = TextEditingController(
+        text: producto['precioUnitario']?.toString() ?? '0');
     File? imagenFile;
 
     showDialog(
@@ -247,9 +261,20 @@ class _InventarioViewState extends State<InventarioView> {
                             controller: precioCtrl,
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
+                            textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
-                              labelText: 'Precio de Venta',
+                              labelText: 'Precio',
                               prefixIcon: Icon(Icons.attach_money),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: precioUnitarioCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'Precio Unitario',
+                              prefixIcon: Icon(Icons.money),
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -304,6 +329,9 @@ class _InventarioViewState extends State<InventarioView> {
                           final precio =
                               double.tryParse(precioCtrl.text.trim()) ??
                                   precioCtrl.text.trim();
+                          final precioUnitario =
+                              double.tryParse(precioUnitarioCtrl.text.trim()) ??
+                                  precioUnitarioCtrl.text.trim();
 
                           if (nombre.isEmpty || cantidad == null) {
                             _mostrarFlush('Revisa nombre y cantidad',
@@ -326,15 +354,13 @@ class _InventarioViewState extends State<InventarioView> {
                             nombre: nombre,
                             cantidad: cantidad,
                             precio: precio,
+                            precioUnitario: precioUnitario,
                             imagenFile: imagenFile,
                           );
 
                           if (ok) {
-                            setState(() {
-                              producto['nombre'] = nombre;
-                              producto['cantidad'] = cantidad;
-                              producto['precio'] = precio;
-                            });
+                            // Recargar productos desde el servidor para obtener datos actuales
+                            await _fetchProductos();
                             if (context.mounted) Navigator.pop(context);
                             _mostrarFlush('Producto actualizado',
                                 Icons.check_circle, Colors.green);
@@ -733,6 +759,7 @@ class _InventarioViewState extends State<InventarioView> {
                                 nombre: producto['nombre'],
                                 cantidad: nuevaCantidad,
                                 precio: producto['precio'],
+                                precioUnitario: producto['precioUnitario'] ?? 0,
                               );
 
                               setState(() {
@@ -1230,9 +1257,7 @@ class _InventarioViewState extends State<InventarioView> {
                                 : int.tryParse('$cantidad') ?? 0,
                             precioTexto: '$precio',
                             precioUnitarioTexto:
-                                producto['precioUnitario'] != null
-                                    ? '${producto['precioUnitario']}'
-                                    : null,
+                                '${producto['precioUnitario'] ?? 0}',
                             gradientColors: gradientColors,
                             onTap: () => _abrirDialogoProducto(producto),
                             onEdit: () => _mostrarEditarProducto(producto),
@@ -1258,7 +1283,7 @@ class _ProductTileAdmin extends StatefulWidget {
   final String imagenUrl;
   final int cantidad;
   final String precioTexto;
-  final String? precioUnitarioTexto;
+  final String precioUnitarioTexto;
   final List<Color> gradientColors;
   final VoidCallback onTap;
   final VoidCallback onEdit;
@@ -1270,7 +1295,7 @@ class _ProductTileAdmin extends StatefulWidget {
     required this.imagenUrl,
     required this.cantidad,
     required this.precioTexto,
-    this.precioUnitarioTexto,
+    required this.precioUnitarioTexto,
     required this.gradientColors,
     required this.onTap,
     required this.onEdit,
@@ -1443,34 +1468,32 @@ class _ProductTileAdminState extends State<_ProductTileAdmin> {
                               ],
                             ),
                           ),
-                          if (widget.precioUnitarioTexto != null) ...[
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.pink.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.monetization_on,
-                                      color: Color(0xFFF26AB6), size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Compra: ${widget.precioUnitarioTexto}',
-                                    style: const TextStyle(
-                                      color: Color(0xFFF26AB6),
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.pink.shade50,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.monetization_on,
+                                    color: Color(0xFFF26AB6), size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  widget.precioUnitarioTexto,
+                                  style: const TextStyle(
+                                    color: Color(0xFFF26AB6),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
