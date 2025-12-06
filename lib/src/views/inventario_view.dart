@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +12,9 @@ import 'package:app_beauty/src/views/pedido_view.dart';
 import 'package:app_beauty/src/views/mi_perfil_pedidos_view.dart';
 import 'package:app_beauty/src/views/pedidos_ventas_view.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:excel/excel.dart' as excel;
+import 'package:path_provider/path_provider.dart';
 // Removed exports & menu dependencies as per new requirements
 
 class ProductosExcelView extends StatefulWidget {
@@ -1059,29 +1063,16 @@ extension on _ProductosExcelViewState {
                 ),
                 const SizedBox(height: 16),
                 ListTile(
-                  leading: Icon(Icons.download, color: gradientColors.first),
+                  leading: Icon(Icons.share, color: gradientColors.first),
                   title: Text(
-                    'Descargar Inventario',
+                    'Compartir Inventario',
                     style: GoogleFonts.poppins(fontSize: 14),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   onTap: () {
                     Navigator.pop(context);
-                    _descargarInventario();
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.email, color: gradientColors.last),
-                  title: Text(
-                    'Enviar por Correo',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _enviarPorCorreo();
+                    _compartirInventario();
                   },
                 ),
                 const SizedBox(height: 8),
@@ -1091,6 +1082,76 @@ extension on _ProductosExcelViewState {
         );
       },
     );
+  }
+
+  Future<void> _compartirInventario() async {
+    try {
+      // Crear archivo Excel
+      final excelFile = excel.Excel.createExcel();
+      final sheet = excelFile['INVENTARIO'];
+
+      // Agregar encabezados
+      sheet.appendRow(
+          ['ID', 'Producto', 'Cantidad', 'Precio', 'Precio Unitario', 'Total']);
+
+      double totalGeneral = 0.0;
+
+      // Agregar datos de productos
+      for (var producto in _filteredSortedProductos()) {
+        final cantidad = producto['cantidad_asignada'] ?? 0;
+        final precio = double.tryParse(producto['precio'].toString()) ?? 0.0;
+        final precioUnitario =
+            double.tryParse(producto['precioUnitario']?.toString() ?? '0') ??
+                0.0;
+        final total = cantidad * precio;
+        totalGeneral += total;
+
+        sheet.appendRow([
+          producto['id'].toString(),
+          producto['nombre']?.toString() ?? '',
+          cantidad.toString(),
+          precio.toStringAsFixed(2),
+          precioUnitario.toStringAsFixed(2),
+          total.toStringAsFixed(2),
+        ]);
+      }
+
+      // Agregar fila de total
+      sheet.appendRow([
+        '',
+        '',
+        '',
+        '',
+        'TOTAL:',
+        totalGeneral.toStringAsFixed(2),
+      ]);
+
+      // Guardar archivo en directorio temporal
+      final dir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final path = '${dir.path}/inventario_$timestamp.xlsx';
+
+      final fileBytes = excelFile.encode();
+      if (fileBytes != null) {
+        await io.File(path).writeAsBytes(fileBytes);
+
+        // Compartir archivo usando el sistema nativo
+        await Share.shareXFiles(
+          [XFile(path)],
+          subject: 'Inventario de Productos',
+        );
+      } else {
+        throw Exception('No se pudo generar el archivo Excel');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al compartir: $e', style: GoogleFonts.poppins()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _descargarInventario() async {

@@ -283,14 +283,15 @@ class _AsignacionViewState extends State<AsignacionView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
-      body: SingleChildScrollView(
-        child: Center(
+      body: Center(
+        child: SingleChildScrollView(
           child: Column(
             children: [
               const SizedBox(height: 20),
 
               /// 🔹 Formulario
               Container(
+                constraints: const BoxConstraints(maxWidth: 500),
                 padding: const EdgeInsets.all(18),
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 decoration: BoxDecoration(

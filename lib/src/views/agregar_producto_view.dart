@@ -251,14 +251,14 @@ class _AgregarProductoViewState extends State<AgregarProductoView> {
                       const SizedBox(height: 20),
                       _buildTextField(
                         _precioController,
-                        'Precio',
+                        'Precio Unitario',
                         icon: Icons.attach_money,
                         isDecimal: true,
                       ),
                       const SizedBox(height: 20),
                       _buildTextField(
                         _precioUnitarioController,
-                        'Precio Unitario',
+                        'Precio',
                         icon: Icons.monetization_on,
                         isDecimal: true,
                       ),
