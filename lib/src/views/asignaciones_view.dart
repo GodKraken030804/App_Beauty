@@ -311,274 +311,238 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 2,
+        backgroundColor: const Color(0xFFF3F3F3),
+        elevation: 0,
         centerTitle: true,
+        automaticallyImplyLeading: false,
         iconTheme: const IconThemeData(color: Color(0xFFF26AB6)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFFF26AB6)),
-            onPressed: () {
-              _cargarAsignaciones();
-              _cargarCatalogos();
-            },
-            tooltip: 'Recargar',
-          ),
-        ],
       ),
-      body: Column(
-        children: [
-          // Top gradient bar for visual consistency
-          Container(
-            width: double.infinity,
-            height: 60,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFFF26AB6)),
-                  )
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Error: $_error',
-                              style: GoogleFonts.poppins(
-                                color: Colors.red,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFF26AB6),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                              ),
-                              icon: const Icon(Icons.refresh,
-                                  color: Colors.white),
-                              onPressed: _cargarAsignaciones,
-                              label: Text(
-                                'Reintentar',
-                                style: GoogleFonts.poppins(color: Colors.white),
-                              ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFFF26AB6),
+        onPressed: () {
+          _cargarAsignaciones();
+          _cargarCatalogos();
+        },
+        tooltip: 'Recargar',
+        child: const Icon(Icons.refresh, color: Colors.white),
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFFF26AB6)),
+            )
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Error: $_error',
+                        style: GoogleFonts.poppins(
+                          color: Colors.red,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF26AB6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        onPressed: _cargarAsignaciones,
+                        label: Text(
+                          'Reintentar',
+                          style: GoogleFonts.poppins(color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ListView(
+                    children: [
+                      Center(
+                        child: Image.asset(
+                          'assets/images/Logo.png',
+                          height: 180,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 6,
+                              offset: const Offset(2, 4),
                             ),
                           ],
                         ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: ListView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Center(
-                              child: Image.asset(
-                                'assets/images/Logo.png',
-                                height: 180,
-                                fit: BoxFit.contain,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Asignaciones Registradas',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFFF26AB6),
+                                    ),
+                                  ),
+                                ),
+                                if (_loadingCatalogos)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Color(0xFFF26AB6)),
+                                    ),
+                                  ),
+                              ],
                             ),
-                            const SizedBox(height: 20),
-                            Container(
-                              padding: const EdgeInsets.all(18),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.15),
-                                    blurRadius: 6,
-                                    offset: const Offset(2, 4),
+                            const SizedBox(height: 16),
+                            if (_asignaciones.isEmpty)
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Text(
+                                    'No hay asignaciones disponibles',
+                                    style: TextStyle(color: Colors.grey),
                                   ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Asignaciones Registradas',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFFF26AB6),
-                                          ),
-                                        ),
-                                      ),
-                                      if (_loadingCatalogos)
-                                        const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                    Color(0xFFF26AB6)),
-                                          ),
-                                        ),
-                                    ],
+                                ),
+                              )
+                            else
+                              ..._asignaciones.map(
+                                (asig) => Card(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
                                   ),
-                                  const SizedBox(height: 16),
-                                  if (_asignaciones.isEmpty)
-                                    const Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.all(8.0),
-                                        child: Text(
-                                          'No hay asignaciones disponibles',
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    ..._asignaciones.map(
-                                      (asig) => Card(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(15),
-                                        ),
-                                        elevation: 4,
-                                        margin: const EdgeInsets.symmetric(
-                                            vertical: 10),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16.0),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  CircleAvatar(
-                                                    backgroundColor:
-                                                        const Color(0xFFF26AB6),
-                                                    child: const Icon(
-                                                        Icons.school,
-                                                        color: Colors.white),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Text(
-                                                      "Asignación ${asig.id ?? 'N/A'}",
-                                                      style:
-                                                          GoogleFonts.poppins(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 18,
-                                                        color: Colors.black87,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 12),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.class_,
-                                                      color: Color(0xFFF26AB6)),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      asig.idCurso != null &&
-                                                              _cursosNombres
-                                                                  .containsKey(
-                                                                      asig.idCurso)
-                                                          ? 'Curso: ${_cursosNombres[asig.idCurso]}'
-                                                          : 'Curso ID: ${asig.idCurso ?? 'N/A'}',
-                                                      style:
-                                                          GoogleFonts.poppins(
-                                                        fontSize: 16,
-                                                      ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.person,
-                                                      color: Color(0xFFF26AB6)),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      asig.idEncargado !=
-                                                                  null &&
-                                                              _encargadosNombres
-                                                                  .containsKey(asig
-                                                                      .idEncargado)
-                                                          ? 'Encargado: ${_encargadosNombres[asig.idEncargado]}'
-                                                          : 'Encargado ID: ${asig.idEncargado ?? 'N/A'}',
-                                                      style:
-                                                          GoogleFonts.poppins(
-                                                        fontSize: 16,
-                                                      ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 12),
-                                              SizedBox(
-                                                width: double.infinity,
-                                                child: ElevatedButton.icon(
-                                                  onPressed: asig.id != null
-                                                      ? () =>
-                                                          _eliminarAsignacion(
-                                                              asig.id!)
-                                                      : null,
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        Colors.red.shade600,
-                                                    foregroundColor:
-                                                        Colors.white,
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        vertical: 12),
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              15),
-                                                    ),
-                                                  ),
-                                                  icon: const Icon(
-                                                      Icons.delete_outline,
-                                                      size: 18),
-                                                  label: Text(
-                                                    'Eliminar',
-                                                    style:
-                                                        GoogleFonts.poppins(),
-                                                  ),
+                                  elevation: 4,
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 10),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor:
+                                                  const Color(0xFFF26AB6),
+                                              child: const Icon(Icons.school,
+                                                  color: Colors.white),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                "Asignación ${asig.id ?? 'N/A'}",
+                                                style: GoogleFonts.poppins(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 18,
+                                                  color: Colors.black87,
                                                 ),
                                               ),
-                                            ],
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.class_,
+                                                color: Color(0xFFF26AB6)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                asig.idCurso != null &&
+                                                        _cursosNombres
+                                                            .containsKey(
+                                                                asig.idCurso)
+                                                    ? 'Curso: ${_cursosNombres[asig.idCurso]}'
+                                                    : 'Curso ID: ${asig.idCurso ?? 'N/A'}',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.person,
+                                                color: Color(0xFFF26AB6)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                asig.idEncargado != null &&
+                                                        _encargadosNombres
+                                                            .containsKey(asig
+                                                                .idEncargado)
+                                                    ? 'Encargado: ${_encargadosNombres[asig.idEncargado]}'
+                                                    : 'Encargado ID: ${asig.idEncargado ?? 'N/A'}',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: asig.id != null
+                                                ? () => _eliminarAsignacion(
+                                                    asig.id!)
+                                                : null,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.red.shade600,
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(15),
+                                              ),
+                                            ),
+                                            icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 18),
+                                            label: Text(
+                                              'Eliminar',
+                                              style: GoogleFonts.poppins(),
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                ],
+                                  ),
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
-          ),
-        ],
-      ),
+                    ],
+                  ),
+                ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
