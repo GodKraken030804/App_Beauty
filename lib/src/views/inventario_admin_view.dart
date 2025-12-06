@@ -538,36 +538,51 @@ class _InventarioViewState extends State<InventarioView> {
               pequeno: true),
           _botonGradiente("Aceptar", () async {
             final cantidad = int.tryParse(controller.text);
-            if (cantidad != null) {
+            if (cantidad != null && cantidad > 0) {
               final confirmado =
                   await _mostrarConfirmacion("¿Deseas actualizar el stock?");
               if (!confirmado) return;
 
-              final payload = {
-                'iduser': 1, // Reemplazar por ID real del usuario logueado
-                'idproduc': producto['id'],
-                'cantidad': cantidad
-              };
+              // Calcular nueva cantidad (sumar lo que llegó)
+              final cantidadActual = producto['cantidad'] ?? 0;
+              final nuevaCantidad = (cantidadActual is num
+                      ? cantidadActual.toInt()
+                      : int.tryParse('$cantidadActual') ?? 0) +
+                  cantidad;
 
-              await http.post(
-                Uri.parse('${dotenv.env['API_EMPRESA']}api/v1/asignado'),
-                headers: {'Content-Type': 'application/json'},
-                body: jsonEncode(payload),
+              // Actualizar usando el mismo endpoint que editar producto
+              final ok = await _actualizarProductoPorId(
+                id: producto['id'],
+                nombre: producto['nombre'],
+                cantidad: nuevaCantidad,
+                precio: producto['precio'],
+                precioUnitario: producto['precioUnitario'] ?? 0,
               );
 
-              setState(() {
-                producto['cantidad'] += cantidad;
-                historial.add({
-                  'tipo': 'Pedido',
-                  'producto': producto['nombre'],
-                  'cantidad': cantidad,
-                  'fecha': DateTime.now().toString(),
+              if (ok) {
+                // Actualizar localmente
+                setState(() {
+                  producto['cantidad'] = nuevaCantidad;
+                  historial.add({
+                    'tipo': 'Pedido',
+                    'producto': producto['nombre'],
+                    'cantidad': cantidad,
+                    'fecha': DateTime.now().toString(),
+                  });
                 });
-              });
 
-              Navigator.pop(context); // Cierra el formulario
-              _mostrarFlush(
-                  "Stock actualizado", Icons.check_circle, Colors.green);
+                // Recargar productos para sincronizar
+                await _fetchProductos();
+
+                Navigator.pop(context); // Cierra el formulario
+                _mostrarFlush("Stock actualizado: +$cantidad unidades",
+                    Icons.check_circle, Colors.green);
+              } else {
+                _mostrarFlush("Error al actualizar stock", Icons.error_outline,
+                    Colors.red);
+              }
+            } else {
+              _mostrarFlush("Cantidad inválida", Icons.warning, Colors.orange);
             }
           }),
         ],
