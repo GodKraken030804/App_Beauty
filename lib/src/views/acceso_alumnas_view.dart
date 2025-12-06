@@ -10,7 +10,7 @@ import 'dart:io' as io;
 import 'package:http/http.dart' as http;
 import 'package:universal_html/html.dart' as html;
 import 'package:path_provider/path_provider.dart';
-import 'package:file_saver/file_saver.dart';
+// Removed FileSaver; using share-only flow
 import 'package:share_plus/share_plus.dart';
 import '../models/alumna_model.dart';
 import 'package:app_beauty/src/views/mi_perfil_view.dart';
@@ -670,6 +670,110 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     );
   }
 
+  Future<void> _mostrarExportarExcelDialog() async {
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Image.asset('assets/images/Logo.png', height: 64, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Exportar Excel Final',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: _gradientStart,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Se generará el Excel y podrás compartirlo desde la siguiente pantalla.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _exportExcel();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        elevation: 0,
+                      ),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [_gradientStart, _gradientEnd],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.12),
+                              blurRadius: 10,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Container(
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.file_download_done,
+                                  color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Exportar y Compartir',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text('Cancelar', style: GoogleFonts.poppins()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _downloadAssignedExcel() async {
     if (widget.excel == null || widget.excel!.isEmpty) {
       debugPrint(
@@ -867,82 +971,89 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
       ),
       builder: (ctx) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('¿Qué deseas hacer?',
-                  style: GoogleFonts.poppins(
-                      fontSize: 16, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final ok = await _saveToDownloads(bytes, filename,
-                            mimeType: mimeType);
-                        if (!mounted) return;
-                        Navigator.pop(ctx);
-                        _showNotification(ok ? 'Guardado' : 'Error',
-                            ok ? 'Archivo en Descargas' : 'No se pudo guardar');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                      ).merge(ButtonStyle(
-                        shape: MaterialStateProperty.all(RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12))),
-                        elevation: MaterialStateProperty.all(0),
-                      )),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                              colors: [_gradientStart, _gradientEnd]),
-                          borderRadius: BorderRadius.circular(12),
+              Center(
+                child: Image.asset(
+                  'assets/images/Logo.png',
+                  height: 48,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Listo para compartir',
+                style: GoogleFonts.poppins(
+                    fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      final dir = await getTemporaryDirectory();
+                      final path = '${dir.path}/$filename';
+                      final f = io.File(path);
+                      await f.writeAsBytes(bytes, flush: true);
+                      await Share.shareXFiles([
+                        XFile(path, mimeType: mimeType, name: filename),
+                      ]);
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error al compartir: $e')),
+                        );
+                      }
+                    } finally {
+                      if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    elevation: 0,
+                  ),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_gradientStart, _gradientEnd],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 6),
                         ),
-                        child: Container(
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text('Descargar',
-                              style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600)),
-                        ),
+                      ],
+                    ),
+                    child: Container(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.send, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Enviar',
+                            style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        try {
-                          final tempDir = await getTemporaryDirectory();
-                          final tempFile = io.File('${tempDir.path}/$filename');
-                          await tempFile.writeAsBytes(bytes, flush: true);
-                          await Share.shareXFiles([
-                            XFile(tempFile.path, name: filename),
-                          ]);
-                        } catch (_) {
-                          _showNotification('Error', 'No se pudo compartir');
-                        }
-                        if (!mounted) return;
-                        Navigator.pop(ctx);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: _gradientStart),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text('Enviar/Compartir',
-                          style: GoogleFonts.poppins(
-                              color: _gradientStart,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -951,28 +1062,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
     );
   }
 
-  Future<bool> _saveToDownloads(Uint8List bytes, String filename,
-      {required String mimeType}) async {
-    // Guardar vía FileSaver en Descargas (MediaStore). Requiere ext separada.
-    final dot = filename.lastIndexOf('.');
-    String base = filename;
-    String ext = '';
-    if (dot != -1 && dot < filename.length - 1) {
-      base = filename.substring(0, dot);
-      ext = filename.substring(dot + 1);
-    }
-    try {
-      final savedPath = await FileSaver.instance.saveFile(
-        name: base,
-        ext: ext,
-        bytes: bytes,
-        mimeType: MimeType.other,
-      );
-      return savedPath.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
+  // Removed legacy save-to-downloads helper; unified share-only flow
 
   // Guarda en una carpeta segura de la app: Android => /Android/data/<paquete>/files/AppBeauty
   // iOS => Documents/AppBeauty. No requiere permisos especiales.
@@ -1605,7 +1695,7 @@ class _AccesoAlumnasViewState extends State<AccesoAlumnasView>
           FabItem(
             label: 'Exportar Excel final',
             icon: Icons.table_view,
-            onTap: _exportExcel,
+            onTap: _mostrarExportarExcelDialog,
           ),
         ],
         gradientStart: _gradientStart,

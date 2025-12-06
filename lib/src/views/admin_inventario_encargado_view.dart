@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -504,47 +505,61 @@ class _AdminInventarioEncargadoViewState
                     height: 80, fit: BoxFit.contain),
               ),
               const SizedBox(height: 12),
-              Text('Exportar Inventario',
+              Text('Exportar Inventario de Encargado',
                   style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600, fontSize: 16)),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _gradientActionButton(
-                    label: 'Guardar en Descargas',
-                    icon: Icons.download,
-                    onTap: () async {
-                      final ok = await _saveToDownloads(bytes, filename,
-                          mimeType: mimeType);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(ok
-                                ? 'Guardado en Descargas'
-                                : 'No se pudo guardar'),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final dir = await getTemporaryDirectory();
+                    final path = '${dir.path}/$filename';
+                    final file = File(path);
+                    await file.writeAsBytes(bytes, flush: true);
+                    await Share.shareXFiles([XFile(path)],
+                        text: 'Inventario ${widget.nombre}');
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 5,
+                    shadowColor: Colors.grey.withOpacity(0.5),
+                  ),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Container(
+                      alignment: Alignment.center,
+                      constraints: const BoxConstraints(minHeight: 50),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.share, size: 22),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Enviar',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        );
-                      }
-                      if (context.mounted) Navigator.pop(context);
-                    },
+                        ],
+                      ),
+                    ),
                   ),
-                  _gradientActionButton(
-                    label: 'Enviar',
-                    icon: Icons.share,
-                    onTap: () async {
-                      final dir = await getApplicationDocumentsDirectory();
-                      final path = '${dir.path}/$filename';
-                      final file = XFile.fromData(bytes,
-                          name: filename, mimeType: mimeType);
-                      // Algunas apps requieren archivo en disco, por eso escribimos también
-                      await file.saveTo(path);
-                      await Share.shareXFiles([XFile(path)],
-                          text: 'Inventario ${widget.nombre}');
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                ],
+                ),
               ),
             ],
           ),

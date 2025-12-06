@@ -312,16 +312,16 @@ class _InventarioViewState extends State<InventarioView> {
                       ),
                     ),
                   ),
-                  // Acciones
+                  // Acciones (usar Wrap para evitar overflow en pantallas pequeñas)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 10,
+                      runSpacing: 8,
                       children: [
-                        _botonGradiente(
-                            'Cancelar', () => Navigator.pop(context),
+                        _botonGradiente('Cancelar', () => Navigator.pop(context),
                             pequeno: true),
-                        const SizedBox(width: 10),
                         _botonGradiente('Guardar', () async {
                           final nombre = nombreCtrl.text.trim();
                           final cantidad =
@@ -565,6 +565,29 @@ class _InventarioViewState extends State<InventarioView> {
                 });
               });
 
+              // También actualizar el stock en el backend vía Gateway
+              // Usando el mismo endpoint: actualizar-producto/$id (solo cambia cantidad)
+              try {
+                final ok = await _actualizarProductoPorId(
+                  id: producto['id'],
+                  nombre: (producto['nombre'] ?? '').toString(),
+                  cantidad: (producto['cantidad'] is num)
+                      ? (producto['cantidad'] as num).toInt()
+                      : int.tryParse('${producto['cantidad']}') ?? 0,
+                  precio: producto['precio'] ?? 0,
+                  precioUnitario: producto['precioUnitario'] ?? 0,
+                );
+                if (!ok) {
+                  _mostrarFlush(
+                      'No se pudo actualizar el stock en servidor',
+                      Icons.error_outline,
+                      Colors.red);
+                }
+              } catch (_) {
+                _mostrarFlush('Error al actualizar stock', Icons.error,
+                    Colors.red);
+              }
+
               Navigator.pop(context); // Cierra el formulario
               _mostrarFlush(
                   "Stock actualizado", Icons.check_circle, Colors.green);
@@ -623,8 +646,10 @@ class _InventarioViewState extends State<InventarioView> {
                     style: const TextStyle(fontSize: 14, color: Colors.black54),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       _botonGradiente(
                           textoCancelar, () => Navigator.pop(context, false),
@@ -900,23 +925,10 @@ class _InventarioViewState extends State<InventarioView> {
                   style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600, fontSize: 16)),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _botonGradiente('Guardar en Descargas', () async {
-                    final ok = await _saveToDownloads(bytes, filename,
-                        mimeType: mimeType);
-                    if (ok) {
-                      _mostrarFlush('Guardado en Descargas', Icons.check_circle,
-                          Colors.green);
-                    } else {
-                      _mostrarFlush(
-                          'No se pudo guardar', Icons.error, Colors.red);
-                    }
-                    if (context.mounted) Navigator.pop(context);
-                  }, icon: Icons.download),
-                  _botonGradiente('Enviar', () async {
-                    // Guardar temporalmente y compartir
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
                     final dir = await getApplicationDocumentsDirectory();
                     final path = '${dir.path}/$filename';
                     final file = File(path);
@@ -924,8 +936,46 @@ class _InventarioViewState extends State<InventarioView> {
                     await Share.shareXFiles([XFile(path)],
                         text: 'Inventario App Beauty');
                     if (context.mounted) Navigator.pop(context);
-                  }, icon: Icons.share),
-                ],
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 5,
+                    shadowColor: Colors.grey.withOpacity(0.5),
+                  ),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Container(
+                      alignment: Alignment.center,
+                      constraints: const BoxConstraints(minHeight: 50),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.share, size: 22),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Enviar',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -934,6 +984,7 @@ class _InventarioViewState extends State<InventarioView> {
     );
   }
 
+  // ignore: unused_element
   Future<bool> _saveToDownloads(Uint8List bytes, String filename,
       {required String mimeType}) async {
     final dot = filename.lastIndexOf('.');
@@ -956,6 +1007,7 @@ class _InventarioViewState extends State<InventarioView> {
     }
   }
 
+  // ignore: unused_element
   void _mostrarHistorial() {
     showDialog(
       context: context,
@@ -1048,13 +1100,57 @@ class _InventarioViewState extends State<InventarioView> {
                       height: 90, fit: BoxFit.contain),
                 ),
                 const SizedBox(height: 12),
-                _botonGradiente(
-                  'Descargar Inventario General',
-                  () async {
-                    await _exportarExcel();
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  icon: Icons.file_download,
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await _exportarExcel();
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 5,
+                      shadowColor: Colors.grey.withOpacity(0.5),
+                    ),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Container(
+                        alignment: Alignment.center,
+                        constraints: const BoxConstraints(minHeight: 50),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.file_download, size: 22),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Descargar Inventario General',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -806,7 +806,7 @@ class _ProductosExcelViewState extends State<ProductosExcelView> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: gradientColors.first,
         onPressed: () {
-          _mostrarMenuOpciones();
+          _mostrarExportarInventarioDialog();
         },
         child: const Icon(Icons.download, color: Colors.white),
       ),
@@ -891,6 +891,218 @@ class _PaqueteItem {
 }
 
 extension on _ProductosExcelViewState {
+  void _mostrarExportarInventarioDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Image.asset('assets/images/Logo.png',
+                    height: 90, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 12),
+              Text('Exportar Inventario',
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await _exportarInventarioExcel();
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 5,
+                    shadowColor: Colors.grey.withOpacity(0.5),
+                  ),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Container(
+                      alignment: Alignment.center,
+                      constraints: const BoxConstraints(minHeight: 50),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.share, size: 22),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Compartir Inventario',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportarInventarioExcel() async {
+    try {
+      final excelFile = excel.Excel.createExcel();
+      final sheet = excelFile['INVENTARIO'];
+
+      sheet.appendRow(
+          ['ID', 'Producto', 'Cantidad', 'Precio', 'Precio Unitario', 'Total']);
+
+      double totalGeneral = 0.0;
+      for (var producto in _filteredSortedProductos()) {
+        final cantidad = producto['cantidad_asignada'] ?? 0;
+        final precio = double.tryParse(producto['precio']?.toString() ?? '0') ?? 0.0;
+        final precioUnitario =
+            double.tryParse(producto['precioUnitario']?.toString() ?? '0') ?? 0.0;
+        final total = (cantidad is num ? cantidad.toDouble() : double.tryParse('$cantidad') ?? 0.0) * precio;
+        totalGeneral += total;
+
+        sheet.appendRow([
+          producto['id'].toString(),
+          producto['nombre']?.toString() ?? '',
+          cantidad.toString(),
+          precio.toStringAsFixed(2),
+          precioUnitario.toStringAsFixed(2),
+          total.toStringAsFixed(2),
+        ]);
+      }
+
+      sheet.appendRow(['', '', '', '', 'TOTAL:', totalGeneral.toStringAsFixed(2)]);
+
+      final fileBytes = excelFile.encode();
+      if (fileBytes == null) return;
+
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final filename = 'inventario_$ts.xlsx';
+      await _promptSendInventario(Uint8List.fromList(fileBytes), filename,
+          mimeType:
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al preparar exportación: $e', style: GoogleFonts.poppins()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _promptSendInventario(Uint8List bytes, String filename,
+      {required String mimeType}) async {
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Image.asset('assets/images/Logo.png',
+                    height: 80, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 12),
+              Text('Exportar Inventario',
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      final dir = await getTemporaryDirectory();
+                      final path = '${dir.path}/$filename';
+                      final file = io.File(path);
+                      await file.writeAsBytes(bytes, flush: true);
+                      await Share.shareXFiles([XFile(path)],
+                          subject: 'Inventario de Productos');
+                      if (context.mounted) Navigator.pop(context);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('No se pudo compartir: $e', style: GoogleFonts.poppins()),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 5,
+                    shadowColor: Colors.grey.withOpacity(0.5),
+                  ),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Container(
+                      alignment: Alignment.center,
+                      constraints: const BoxConstraints(minHeight: 50),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.share, size: 22),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Enviar',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   Future<void> _abrirArmarPaquete() async {
     if (productosAsignados.isEmpty) return;
     final seleccion = await Navigator.push<List<_PaqueteItem>>(
@@ -1037,52 +1249,7 @@ extension on _ProductosExcelViewState {
     }
   }
 
-  void _mostrarMenuOpciones() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
-      builder: (BuildContext context) {
-        return SingleChildScrollView(
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Opciones del Inventario',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  leading: Icon(Icons.share, color: gradientColors.first),
-                  title: Text(
-                    'Compartir Inventario',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _compartirInventario();
-                  },
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  // (Old options sheet removed in favor of dialog + single 'Enviar' bottom sheet)
 
   Future<void> _compartirInventario() async {
     try {

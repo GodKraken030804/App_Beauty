@@ -585,76 +585,70 @@ class _GastosViewState extends State<GastosView> with TickerProviderStateMixin {
       ),
       builder: (ctx) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('¿Qué deseas hacer?',
-                  style: GoogleFonts.poppins(
-                      fontSize: 16, fontWeight: FontWeight.w600)),
+              Center(
+                child: Image.asset('assets/images/Logo.png',
+                    height: 80, fit: BoxFit.contain),
+              ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final ok = await _saveToDownloads(bytes, filename,
-                            mimeType: mimeType);
-                        if (!mounted) return;
-                        Navigator.pop(ctx);
-                        _showNotification(
-                            ok ? 'Guardado' : 'Error',
-                            ok
-                                ? 'Archivo guardado en Descargas.'
-                                : 'No se pudo guardar.');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                      ).merge(ButtonStyle(
-                        shape: MaterialStateProperty.all(RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12))),
-                        elevation: MaterialStateProperty.all(0),
-                      )),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                              colors: [gradientStart, gradientEnd]),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Container(
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text('Descargar',
-                              style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600)),
-                        ),
+              Text('Exportar Gastos',
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final dir = await getTemporaryDirectory();
+                    final path = '${dir.path}/$filename';
+                    final file = io.File(path);
+                    await file.writeAsBytes(bytes, flush: true);
+                    await Share.shareXFiles([XFile(path)],
+                        subject: 'Gastos', text: 'Gastos exportados');
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 5,
+                    shadowColor: Colors.grey.withOpacity(0.5),
+                  ),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF26AB6), Color(0xFFAA57EC)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Container(
+                      alignment: Alignment.center,
+                      constraints: const BoxConstraints(minHeight: 50),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.share, size: 22),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Enviar',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        await _shareBytes(bytes, filename);
-                        if (!mounted) return;
-                        Navigator.pop(ctx);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: gradientStart),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text('Enviar/Compartir',
-                          style: GoogleFonts.poppins(
-                              color: gradientStart,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
